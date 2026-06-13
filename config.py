@@ -6,7 +6,7 @@ ITEMS_PER_PAGE = 5
 VISIT_ITEMS_PER_PAGE = 5
 
 
-ADMIN_IDS = [   ]
+ADMIN_IDS = [715337548]
 
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")

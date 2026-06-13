@@ -137,23 +137,23 @@ def get_all_rent_properties():
 
 
 def main_menu():
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(
         KeyboardButton(texts["BUY"]),
         KeyboardButton(texts["RENT"])
     )
-    kb.add(KeyboardButton(texts["MORE"]))
-    return kb
+    markup.add(KeyboardButton(texts["MORE"]))
+    return markup
 
 
 def budget_menu():
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(
         KeyboardButton(texts["BUDGET_ENTER"]),
         KeyboardButton(texts["SHOW_ALL"])
     )
-    kb.add(KeyboardButton(texts["BACK"]))
-    return kb
+    markup.add(KeyboardButton(texts["BACK"]))
+    return markup
 
 
 # ----------------------------------------------------
@@ -197,7 +197,7 @@ def get_all_users():
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("SELECT user_id FROM users")
+    cur.execute("SELECT telegram_id FROM users")
 
     rows = cur.fetchall()
 
@@ -226,7 +226,7 @@ def send_visit_page(chat_id, page):
 
     text = texts["VISIT_LIST_HEADER"] + "\n\n"
 
-    kb = InlineKeyboardMarkup()
+    markup = InlineKeyboardMarkup()
 
     for v in visits:
 
@@ -240,7 +240,7 @@ def send_visit_page(chat_id, page):
 --------------------
 """
 
-        kb.row(
+        markup.row(
             InlineKeyboardButton(
                 texts["VISIT_APPROVE"],
                 callback_data=f"vapprove_{v['id']}_{page}"
@@ -251,7 +251,7 @@ def send_visit_page(chat_id, page):
             )
         )
 
-        kb.row(
+        markup.row(
             InlineKeyboardButton(
                 texts["VISIT_CONTACTED"],
                 callback_data=f"vcontact_{v['id']}_{page}"
@@ -275,9 +275,9 @@ def send_visit_page(chat_id, page):
         )
 
     if nav:
-        kb.row(*nav)
+        markup.row(*nav)
 
-    bot.send_message(chat_id, text, reply_markup=kb)
+    bot.send_message(chat_id, text, reply_markup=markup)
 
 
 def count_visit_requests():
@@ -301,14 +301,14 @@ def get_visit_requests_paginated(limit, offset):
 
     cur.execute("""
         SELECT vr.id,
-               vr.phone,
-               vr.status,
-               vr.created_at,
-               u.first_name,
-               u.username,
-               p.title AS property_title
+            u.phone,
+            vr.status,
+            vr.request_time AS created_at,
+            u.first_name,
+            u.username,
+            p.title AS property_title
         FROM visit_requests vr
-        LEFT JOIN users u ON vr.user_id = u.user_id
+        LEFT JOIN users u ON vr.user_id = u.id
         LEFT JOIN properties p ON vr.property_id = p.id
         ORDER BY vr.id DESC
         LIMIT %s OFFSET %s
@@ -356,7 +356,7 @@ def is_admin(user_id):
     return user_id in ADMIN_IDS
 
 
-
+# *******************************************************************************************************************
 def get_all_properties():
 
     conn = get_connection()
@@ -370,6 +370,7 @@ def get_all_properties():
     conn.close()
 
     return rows
+# *******************************************************************************************************************
 
 def delete_property_db(pid):
 
@@ -383,7 +384,6 @@ def delete_property_db(pid):
     cur.close()
     conn.close()
 
-
 def save_property(title, price, type, description, metraj, rooms, photo):
 
     conn = get_connection()
@@ -391,36 +391,35 @@ def save_property(title, price, type, description, metraj, rooms, photo):
 
     cur.execute("""
         INSERT INTO properties
-        (title, price, type, description, metraj, rooms, photo, status)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,'available')
-    """, (
-        title,
-        price,
-        type,
-        description,
-        metraj,
-        rooms,
-        photo
-    ))
+        (title, price, type, description, metr, rooms, status)
+        VALUES (%s,%s,%s,%s,%s,%s,'available')
+    """, (title, price, type, description, metraj, rooms))
+
+    property_id = cur.lastrowid
+
+    if photo:
+        cur.execute("""
+            INSERT INTO property_images (property_id, telegram_file_id)
+            VALUES (%s, %s)
+        """, (property_id, photo))
 
     conn.commit()
-
     cur.close()
     conn.close()
-
+    
 def admin_main_menu():
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
 
-    kb.add(
+    markup.add(
         KeyboardButton(texts["ADMIN_ADD_PROPERTY"]),
         KeyboardButton(texts["ADMIN_LIST_PROPERTIES"])
     )
-    kb.add(
+    markup.add(
         KeyboardButton(texts["ADMIN_VISIT_REQUESTS"]),
         KeyboardButton(texts["ADMIN_BROADCAST"])
     )
 
-    return kb
+    return markup
 
 
 def get_properties_paginated(limit, offset):
@@ -479,7 +478,7 @@ def send_properties_page(chat_id, page):
 🆔 {p['id']}
 🏠 {p['title']}
 💰 {p['price']}
-📐 {p['metraj']} متر
+📐 {p['metr']} متر
 🛏 {p['rooms']} خواب
 📊 {p['status']}
 --------------------
@@ -487,10 +486,10 @@ def send_properties_page(chat_id, page):
 
     total_pages = (total + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
 
-    kb = InlineKeyboardMarkup()
+    markup = InlineKeyboardMarkup()
 
     if page > 1:
-        kb.add(
+        markup.add(
             InlineKeyboardButton(
                 "⬅ قبلی",
                 callback_data=f"upage_{page-1}"
@@ -498,7 +497,7 @@ def send_properties_page(chat_id, page):
         )
 
     if page < total_pages:
-        kb.add(
+        markup.add(
             InlineKeyboardButton(
                 "بعدی ➡",
                 callback_data=f"upage_{page+1}"
@@ -508,7 +507,7 @@ def send_properties_page(chat_id, page):
     bot.send_message(
         chat_id,
         text,
-        reply_markup=kb
+        reply_markup=markup
     )
 
 
@@ -532,8 +531,8 @@ def show_property(cid, prop):
 {prop["description"]}
 """
 
-    kb = InlineKeyboardMarkup()
-    kb.add(
+    markup = InlineKeyboardMarkup()
+    markup.add(
         InlineKeyboardButton(
             "📅 درخواست بازدید",
             callback_data=f"visit_{prop['id']}"
@@ -545,7 +544,7 @@ def show_property(cid, prop):
             cid,
             images[0],
             caption=caption,
-            reply_markup=kb
+            reply_markup=markup
         )
 
         for img in images[1:]:
@@ -555,7 +554,7 @@ def show_property(cid, prop):
         bot.send_message(
             cid,
             caption,
-            reply_markup=kb
+            reply_markup=markup
         )
 
 
@@ -570,16 +569,16 @@ def show_properties_list(cid, properties):
 
 
 def ask_for_phone(cid):
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(
         KeyboardButton("📱 ارسال شماره", request_contact=True)
     )
-    kb.add(texts["BACK"])
+    markup.add(texts["BACK"])
 
     bot.send_message(
         cid,
         "لطفاً شماره خود را ارسال کنید:",
-        reply_markup=kb
+        reply_markup=markup
     )
 # ---------------- REGISTER USER ----------------
 
@@ -823,13 +822,13 @@ def rent_handler(message):
 
 
 def rent_budget_type_menu():
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(
         KeyboardButton(texts["RENT_BUDGET_MENU_DEPOSIT"]),
         KeyboardButton(texts["RENT_BUDGET_MENU_RENT"])
     )
-    kb.add(KeyboardButton(texts["BACK"]))
-    return kb
+    markup.add(KeyboardButton(texts["BACK"]))
+    return markup
 
 
 
@@ -966,10 +965,10 @@ def admin_get_price(message):
 
     admin_states[cid] = "admin_add_type"
 
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(KeyboardButton(texts["TYPE_BUY"]), KeyboardButton(texts["TYPE_RENT"]))
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(KeyboardButton(texts["TYPE_BUY"]), KeyboardButton(texts["TYPE_RENT"]))
 
-    bot.send_message(cid, texts["ASK_PROPERTY_TYPE"], reply_markup=kb)
+    bot.send_message(cid, texts["ASK_PROPERTY_TYPE"], reply_markup=markup)
 
 @bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == "admin_add_type")
 def get_type(message):
@@ -1210,16 +1209,16 @@ def change_page(call):
 🆔 {p['id']}
 🏠 {p['title']}
 💰 {p['price']}
-📐 {p['metraj']} متر
+📐 {p['metr']} متر
 🛏 {p['rooms']} خواب
 📊 {p['status']}
 --------------------
 """
 
-    kb = InlineKeyboardMarkup()
+    markup = InlineKeyboardMarkup()
 
     if page > 1:
-        kb.add(
+        markup.add(
             InlineKeyboardButton(
                 "⬅ قبلی",
                 callback_data=f"upage_{page-1}"
@@ -1227,7 +1226,7 @@ def change_page(call):
         )
 
     if page < total_pages:
-        kb.add(
+        markup.add(
             InlineKeyboardButton(
                 "بعدی ➡",
                 callback_data=f"upage_{page+1}"
@@ -1238,7 +1237,7 @@ def change_page(call):
         text,
         call.message.chat.id,
         call.message.message_id,
-        reply_markup=kb
+        reply_markup=markup
     )
 
     bot.answer_callback_query(call.id)
@@ -1364,6 +1363,18 @@ def send_broadcast(message):
     )
 
     admin_states[message.chat.id] = "admin_none"
+
+def info_listener(messages):
+    for message in messages:
+        user_id = message.chat.id
+        username = message.chat.username or "No Username"
+        text = message.text or f"[{message.content_type}]"
+        
+        print(f"\n--- [New Message] ---")
+        print(f"👤 User: {username} ({user_id})")
+        print(f"💬 Content: {text}")
+        print(f"----------------------\n")
+bot.set_update_listener(info_listener)
 
 # ---------------- RUN BOT ----------------
 print("robot is runing")

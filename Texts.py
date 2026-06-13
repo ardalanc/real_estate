@@ -85,6 +85,10 @@ texts = {
 "BROADCAST_DONE": "✅ ارسال پیام تمام شد",
 
 "BROADCAST_STATS": "ارسال به کاربران:\n\nموفق: {success}\nناموفق: {failed}",
+"RENT_BUDGET_MENU_DEPOSIT": "💵 بودجه رهن",
+"RENT_BUDGET_MENU_RENT": "🏷 بودجه اجاره",
+"ASK_RENT_DEPOSIT": "حداکثر رهن مورد نظر را وارد کنید (تومان):",
+"ASK_RENT_PRICE": "حداکثر اجاره ماهانه مورد نظر را وارد کنید (تومان):",
 
 }
 

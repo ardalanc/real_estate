@@ -704,7 +704,7 @@ def buy_handler(message):
 
 # ---------------- SHOW ALL BUY ----------------
 
-@bot.message_handler(func=lambda m: m.text == texts["SHOW_ALL"])
+@bot.message_handler(func=lambda m: m.text == texts["SHOW_ALL"] and user_state.get(m.chat.id) == "buy_menu")
 def show_all_buy(message):
 
     cid = message.chat.id
@@ -717,7 +717,8 @@ def show_all_buy(message):
 
 # ---------------- ENTER PRICE ----------------
 
-@bot.message_handler(func=lambda m: m.text == texts["BUDGET_ENTER"])
+@bot.message_handler(
+func=lambda m: m.text == texts["BUDGET_ENTER"] and user_state.get(m.chat.id) == "buy_menu")
 def enter_budget(message):
 
     cid = message.chat.id
@@ -827,56 +828,86 @@ def rent_handler(message):
     )
 
 
-@bot.message_handler(func=lambda m: m.text == texts["SHOW_ALL"])
+
+
+
+
+
+
+
+def rent_budget_type_menu():
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add(
+        KeyboardButton(texts["RENT_BUDGET_MENU_DEPOSIT"]),
+        KeyboardButton(texts["RENT_BUDGET_MENU_RENT"])
+    )
+    kb.add(KeyboardButton(texts["BACK"]))
+    return kb
+
+
+
+@bot.message_handler(func=lambda m: m.text == texts["SHOW_ALL"] and user_state.get(m.chat.id) == "rent_menu")
 def show_all_rent(message):
-
     cid = message.chat.id
-
-    if user_state.get(cid) != "rent_menu":
-        return
-
     properties = get_all_rent_properties()
-
     show_properties_list(cid, properties)
 
 
-@bot.message_handler(func=lambda m: m.text == texts["BUDGET_ENTER"])
+@bot.message_handler(func=lambda m: m.text == texts["BUDGET_ENTER"] and user_state.get(m.chat.id) == "rent_menu")
 def enter_rent_budget(message):
-
     cid = message.chat.id
-
-    if user_state.get(cid) != "rent_menu":
-        return
-
-    user_state[cid] = "rent_price"
-
+    user_state[cid] = "rent_budget_type"
     bot.send_message(
         cid,
-        texts["ASK_RENT_PRICE"]
+        "نوع بودجه را انتخاب کنید:",
+        reply_markup=rent_budget_type_menu()
     )
 
 
-@bot.message_handler(func=lambda m: user_state.get(m.chat.id) == "rent_price")
-def get_rent_price(message):
-
+@bot.message_handler(func=lambda m: m.text == texts["RENT_BUDGET_MENU_DEPOSIT"] and user_state.get(m.chat.id) == "rent_budget_type")
+def enter_rent_deposit(message):
     cid = message.chat.id
+    user_state[cid] = "rent_deposit_price"
+    bot.send_message(cid, texts["ASK_RENT_DEPOSIT"])
 
+
+@bot.message_handler(func=lambda m: m.text == texts["RENT_BUDGET_MENU_RENT"] and user_state.get(m.chat.id) == "rent_budget_type")
+def enter_rent_monthly(message):
+    cid = message.chat.id
+    user_state[cid] = "rent_monthly_price"
+    bot.send_message(cid, texts["ASK_RENT_PRICE"])
+
+
+@bot.message_handler(func=lambda m: user_state.get(m.chat.id) == "rent_deposit_price")
+def get_rent_deposit_price(message):
+    cid = message.chat.id
     if not message.text.isdigit():
         bot.send_message(cid, texts["INVALID_PRICE"])
         return
-
     price = int(message.text)
-
     properties = get_rent_properties_by_price(price)
-
-    bot.send_message(
-        cid,
-        texts["SEARCH_RENT"].format(price=price)
-    )
-
+    bot.send_message(cid, texts["SEARCH_RENT"].format(price=price))
     show_properties_list(cid, properties)
-
     user_state[cid] = "rent_menu"
+
+
+@bot.message_handler(func=lambda m: user_state.get(m.chat.id) == "rent_monthly_price")
+def get_rent_monthly_price(message):
+    cid = message.chat.id
+    if not message.text.isdigit():
+        bot.send_message(cid, texts["INVALID_PRICE"])
+        return
+    price = int(message.text)
+    properties = get_rent_properties_by_price(price)
+    bot.send_message(cid, texts["SEARCH_RENT"].format(price=price))
+    show_properties_list(cid, properties)
+    user_state[cid] = "rent_menu"
+
+
+
+
+
+
 
 
 # ---------------- BACK ----------------

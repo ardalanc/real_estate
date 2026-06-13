@@ -704,35 +704,22 @@ def buy_handler(message):
 
 # ---------------- SHOW ALL BUY ----------------
 
-@bot.message_handler(func=lambda m: m.text == texts["SHOW_ALL"] and user_state.get(m.chat.id) == "buy_menu")
-def show_all_buy(message):
-
-    cid = message.chat.id
-
-    if user_state.get(cid) != "buy_menu":
-        return
-
-    properties = get_all_buy_properties()
-    show_properties_list(cid, properties)
 
 # ---------------- ENTER PRICE ----------------
 
-@bot.message_handler(
-func=lambda m: m.text == texts["BUDGET_ENTER"] and user_state.get(m.chat.id) == "buy_menu")
-def enter_budget(message):
-
+@bot.message_handler(func=lambda m: m.text == texts["SHOW_ALL"] and user_state.get(m.chat.id) == "buy_menu")
+def show_all_buy(message):
     cid = message.chat.id
+    properties = get_all_buy_properties()
+    show_properties_list(cid, properties)
 
-    if user_state.get(cid) != "buy_menu":
-        return
 
+@bot.message_handler(func=lambda m: m.text == texts["BUDGET_ENTER"] and user_state.get(m.chat.id) == "buy_menu")
+def enter_budget(message):
+    cid = message.chat.id
     user_state[cid] = "buy_price"
-
-    bot.send_message(
-        cid,
-        texts["ASK_PRICE"]
-    )
-
+    bot.send_message(cid, texts["ASK_PRICE"])
+    
 # ---------------- GET PRICE ----------------
 
 @bot.message_handler(func=lambda m: user_state.get(m.chat.id) == "buy_price")

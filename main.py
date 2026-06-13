@@ -3,12 +3,11 @@ import mysql.connector
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from Texts import *
 from config import *
-# from config import BOT_TOKEN, database_config, DB_NAME, PAGE_SIZE, ADMIN_IDS, ITEMS_PER_PAGE, VISIT_ITEMS_PER_PAGE
 import re
 
 telebot.apihelper.API_URL="http://tapi.bale.ai/bot{0}/{1}"
 
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN)    
 
 user_state = {}
 user_data = {}
@@ -17,7 +16,6 @@ admin_states = {}
 admin_data = {}
 user_step = {}
 admin_step = {}
-
 
 def info_listener(messages):
     """
@@ -34,13 +32,12 @@ def info_listener(messages):
         print(f"----------------------\n")
 bot.set_update_listener(info_listener)
 
-
 # ---------------- DATABASE ----------------
 
 def get_connection():
     return mysql.connector.connect(
         database=DB_NAME,
-        **database_config
+        **DATABASE_CONFIG
     )
 
 def get_buy_properties_by_price(price):
@@ -247,101 +244,28 @@ def start_handler(message):
         reply_markup=main_menu()
     )
 
+@bot.message_handler(commands=['admin'])
+def admin_panel(message):
+
+    uid = message.from_user.id
+
+    # if not is_admin(uid):
+    #     bot.send_message(message.chat.id, texts["ACCESS_DENIED"])
+    #     return
+
+    bot.send_message(
+        message.chat.id,
+        texts["ADMIN_WELCOME"],
+        reply_markup=admin_main_menu()
+    )
+
 # ---------------- CALL BACK ----------------
-
-@bot.callback_query_handler(func=lambda call: True)
-def callback_handler(call):
-    call_id = call.id
-    cid = call.message.chat.id
-    mid = call.message.message_id
-    data = call.data
-
-    if data == "show_buy_option":
-        bot.send_message(
-        cid,
-        texts["ASK_BUDGET"],
-        reply_markup=budget_buy_menu()
-    )
-        
-    elif data == "show_rent_option":
-        bot.send_message(
-        cid,
-        texts["ASK_RENT_BUDGET"],
-        reply_markup=budget_rent_menu()
-    )
-            
-    elif data == "take_rent_budget_properties":
-        pass
-
-    elif data == "take_deposit_budget_properties":
-
-        user_step[cid] = "show_by_deposit_properties"
-        
-        bot.send_message(
-            cid,
-            texts["ASK_deposit_budget"]
-        )
-
-    elif data == "show_all_rent_properties":
-        properties = get_all_rent_properties()
-
-        show_properties_list(cid, properties)
-
-    elif data == "take_budget_buy_properties":
-        user_step[cid] = "show_properties_buy"
-
-        bot.send_message(
-        cid,
-        texts["ASK_PRICE"]
-    )
-        
-    elif data == "show_all_buy_properties":
-        properties = get_all_buy_properties()
-        show_properties_list(cid, properties)
-
-    elif data == "show_more_option":
-        bot.send_message(
-        cid,
-        texts["ASK_RENT_BUDGET"],
-        reply_markup=more_option_menu()
-    )
-
-    elif data.startswith("more_"):
-        _ , activity = data.split("_")
-
-        if activity == "profile":
-            show_profile(call.message)
-
-    
-        
-        elif activity == "visits":
-            pass
-        elif activity == "consultants":
-            pass
-        elif activity == "address":
-            pass
-        elif activity == "suport":
-            more_suport(cid)
-        elif activity == "guide":
-            more_guid(cid)
-    
-    elif data == "edit_phone":
-        bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id, "شماره تلفن جدید را ارسال کنید:")
-        user_step[cid] = "edit_phone"
-
-    elif data == "back_more_menu":
-        bot.send_message(
-            cid,
-            texts["ASK_RENT_BUDGET"],
-            reply_markup=more_option_menu()
-            )
 
 
 # ---------------- MORE PROFILE ----------------
 
 def get_user_information_from_db(telegram_id):
-    conn = mysql.connector.connect(**database_config, database=DB_NAME)
+    conn = mysql.connector.connect(**DATABASE_CONFIG, database=DB_NAME)
     cursor = conn.cursor(dictionary=True)
 
     cursor.execute("""
@@ -396,7 +320,7 @@ def is_valid_phone(phone):
     return re.match(pattern, phone.strip()) is not None
 
 def update_user_phone(telegram_id, phone):
-    conn = database_config()
+    conn = DATABASE_CONFIG()
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -412,12 +336,12 @@ def update_user_phone(telegram_id, phone):
 # ---------------- MORE GUID ----------------
 
 def more_guid(cid):
-    bot.send_message(chat_id=cid, text=MORE_GUID_TEXT)
+    bot.send_message(chat_id=cid, text="MORE_GUID_TEXT")
 
 # ---------------- MORE GUID ----------------
 
 def more_suport(cid):
-    bot.send_message(chat_id=cid, text=MORE_SUPORT_TEXT)
+    bot.send_message(chat_id=cid, text="MORE_SUPORT_TEXT")
 
 # ---------------- USER STEP ----------------
 
@@ -464,8 +388,6 @@ def handle_all_messages(message):
 
         bot.send_message(message.chat.id, "✅ شماره تلفن با موفقیت بروزرسانی شد.")
         show_profile(message)
-
-
 
 # ---------------- RENT MENU ----------------
 
@@ -918,27 +840,12 @@ class AdminState:
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
-@bot.message_handler(commands=['admin'])
-def admin_panel(message):
-
-    uid = message.from_user.id
-
-    if not is_admin(uid):
-        bot.send_message(message.chat.id, texts["ACCESS_DENIED"])
-        return
-
-    bot.send_message(
-        message.chat.id,
-        texts["ADMIN_WELCOME"],
-        reply_markup=admin_main_menu()
-    )
-
 @bot.message_handler(func=lambda m: m.text == texts["ADMIN_ADD_PROPERTY"])
 def admin_add_property(message):
 
     uid = message.from_user.id
-    if not is_admin(uid):
-        return
+    # if not is_admin(uid):
+    #     return
 
     cid = message.chat.id
 
@@ -1251,6 +1158,7 @@ def admin_visit_requests(message):
         return
 
     send_visit_page(message.chat.id, page=1)
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("vpage_"))
 def change_visit_page(call):
 
@@ -1312,6 +1220,7 @@ def admin_broadcast(message):
         message.chat.id,
         texts["ASK_BROADCAST"]
     )
+
 @bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == AdminState.BROADCAST, content_types=['text','photo'])
 def send_broadcast(message):
 
@@ -1364,19 +1273,95 @@ def send_broadcast(message):
 
     admin_states[message.chat.id] = AdminState.NONE
 
-
 #______________________________________________________________________________________________________________
 
+@bot.callback_query_handler(func=lambda call: True)
+def callback_handler(call):
+    call_id = call.id
+    cid = call.message.chat.id
+    mid = call.message.message_id
+    data = call.data
 
+    if data == "show_buy_option":
+        bot.send_message(
+        cid,
+        texts["ASK_BUDGET"],
+        reply_markup=budget_buy_menu()
+    )
+        
+    elif data == "show_rent_option":
+        bot.send_message(
+        cid,
+        texts["ASK_RENT_BUDGET"],
+        reply_markup=budget_rent_menu()
+    )
+            
+    elif data == "take_rent_budget_properties":
+        pass
 
+    elif data == "take_deposit_budget_properties":
 
+        user_step[cid] = "show_by_deposit_properties"
+        
+        bot.send_message(
+            cid,
+            texts["ASK_deposit_budget"]
+        )
 
+    elif data == "show_all_rent_properties":
+        properties = get_all_rent_properties()
 
+        show_properties_list(cid, properties)
 
+    elif data == "take_budget_buy_properties":
+        user_step[cid] = "show_properties_buy"
 
+        bot.send_message(
+        cid,
+        texts["ASK_PRICE"]
+    )
+        
+    elif data == "show_all_buy_properties":
+        properties = get_all_buy_properties()
+        show_properties_list(cid, properties)
 
+    elif data == "show_more_option":
+        bot.send_message(
+        cid,
+        texts["ASK_RENT_BUDGET"],
+        reply_markup=more_option_menu()
+    )
 
+    elif data.startswith("more_"):
+        _ , activity = data.split("_")
 
+        if activity == "profile":
+            show_profile(call.message)
+
+    
+        
+        elif activity == "visits":
+            pass
+        elif activity == "consultants":
+            pass
+        elif activity == "address":
+            pass
+        elif activity == "suport":
+            more_suport(cid)
+        elif activity == "guide":
+            more_guid(cid)
+    
+    elif data == "edit_phone":
+        bot.answer_callback_query(call.id)
+        bot.send_message(call.message.chat.id, "شماره تلفن جدید را ارسال کنید:")
+        user_step[cid] = "edit_phone"
+
+    elif data == "back_more_menu":
+        bot.send_message(
+            cid,
+            texts["ASK_RENT_BUDGET"],
+            reply_markup=more_option_menu()
+            )
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
@@ -1387,8 +1372,8 @@ def callback_handler(call):
     uid = call.message.from_user.id
 
     if data == "admin_add_property":
-        if not is_admin(uid):
-            return
+        # if not is_admin(uid):
+        #     return
 
         admin_step[cid] = "admin_add_title"
 
@@ -1417,8 +1402,8 @@ def callback_handler(call):
         pass
     elif data == "admin_visit_requests":
         pass
-#______________________________________________________________________________________________________________
 
+#______________________________________________________________________________________________________________
 
 @bot.message_handler(func=lambda message: True)
 def handle_all_messages(message):
@@ -1479,10 +1464,7 @@ def handle_all_messages(message):
         admin_states[cid] = "admin_add_photo"
         bot.send_message(cid, texts["ASK_PROPERTY_PHOTO"])
 
-
-
 #______________________________________________________________________________________________________________
-
 
 def get_all_properties():
 
@@ -1535,7 +1517,7 @@ def save_property(title, price, type, description, metraj, rooms, photo):
     conn.close()
 
 def admin_main_menu():
-    kb = InlineKeyboardMarkup(resize_keyboard=True)
+    kb = InlineKeyboardMarkup()
 
     kb.add(
         InlineKeyboardButton(texts["ADMIN_ADD_PROPERTY"], callback_data="admin_add_property"),
@@ -1791,7 +1773,6 @@ def get_all_users():
     conn.close()
 
     return [r[0] for r in rows]
-
 
 # ---------------- RUN BOT ----------------
 

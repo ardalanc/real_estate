@@ -98,7 +98,16 @@ texts = {
 "PROPERTY_ADDED"      : "✅ ملک با موفقیت اضافه شد.",
 "TYPE_BUY"            : "خرید",
 "TYPE_RENT"           : "اجاره",
-
+"MORE_PROFILE"        : "👤 پروفایل من",
+"MORE_VISITS"         : "📅 بازدیدهای من",
+"MORE_CONSULTANTS"    : "👨‍💼 مشاوران",
+"MORE_ADDRESS"        : "📍 آدرس دفتر",
+"MORE_SUPPORT"        : "☎️ پشتیبانی",
+"MORE_GUIDE"          : "📖 راهنما",
+"BUDGET_rent_ENTER"   : "💰 وارد کردن بودجه اجاره",
+"BUDGET_deposit_ENTER": "🏦 وارد کردن بودجه رهن",
+"ASK_deposit_budget"  : "حداکثر رهن مورد نظر را به تومان وارد کنید:",
+"admin_type_rent"     : "اجاره",
 }
 
 

@@ -156,25 +156,6 @@ def budget_menu():
     return kb
 
 
-# ---------------- STATES ----------------
-
-
-class State:
-    NONE = "none"
-
-    BUY_MENU = "buy_menu"
-    BUY_PRICE = "buy_price"
-
-    RENT_MENU = "rent_menu"
-    RENT_PRICE = "rent_price"
-
-    EDIT_TITLE = "edit_title"
-    EDIT_PRICE = "edit_price"
-    EDIT_DESC = "edit_desc"
-
-    BROADCAST = "broadcast"
-
-
 # ----------------------------------------------------
 
 
@@ -183,7 +164,6 @@ def save_visit_request(cid, property_id):
     conn = get_connection()
     cur = conn.cursor()
 
-    # گرفتن user_id
     cur.execute(
         "SELECT id FROM users WHERE telegram_id=%s",
         (cid,)
@@ -282,7 +262,6 @@ def send_visit_page(chat_id, page):
             )
         )
 
-    # دکمه‌های صفحه‌بندی
     nav = []
 
     if page > 1:
@@ -553,7 +532,6 @@ def show_property(cid, prop):
 {prop["description"]}
 """
 
-    # دکمه درخواست بازدید
     kb = InlineKeyboardMarkup()
     kb.add(
         InlineKeyboardButton(
@@ -615,12 +593,10 @@ def register_user(message):
     conn = get_connection()
     cur = conn.cursor()
 
-    # بررسی وجود کاربر
     cur.execute("SELECT id FROM users WHERE telegram_id=%s",(telegram_id,))
 
     user = cur.fetchone()
 
-    # اگر وجود نداشت → ایجاد
     if not user:
         cur.execute("""
             INSERT INTO users
@@ -638,6 +614,8 @@ def register_user(message):
     conn.close()
 
 # ---------------- SHOW PAGE ----------------
+
+
 def show_properties_page(chat_id, properties, page=0):
 
     start = page * PAGE_SIZE
@@ -700,7 +678,7 @@ def page_handler(call):
 def start_handler(message):
 
     cid = message.chat.id
-    user_state[cid] = State.NONE
+    user_state[cid] = "none"
     
     register_user(message)   
 
@@ -716,7 +694,7 @@ def start_handler(message):
 def buy_handler(message):
 
     cid = message.chat.id
-    user_state[cid] = State.BUY_MENU
+    user_state[cid] = "buy_menu"
 
     bot.send_message(
         cid,
@@ -731,7 +709,7 @@ def show_all_buy(message):
 
     cid = message.chat.id
 
-    if user_state.get(cid) != State.BUY_MENU:
+    if user_state.get(cid) != "buy_menu":
         return
 
     properties = get_all_buy_properties()
@@ -744,10 +722,10 @@ def enter_budget(message):
 
     cid = message.chat.id
 
-    if user_state.get(cid) != State.BUY_MENU:
+    if user_state.get(cid) != "buy_menu":
         return
 
-    user_state[cid] = State.BUY_PRICE
+    user_state[cid] = "buy_price"
 
     bot.send_message(
         cid,
@@ -756,7 +734,7 @@ def enter_budget(message):
 
 # ---------------- GET PRICE ----------------
 
-@bot.message_handler(func=lambda m: user_state.get(m.chat.id) == State.BUY_PRICE)
+@bot.message_handler(func=lambda m: user_state.get(m.chat.id) == "buy_price")
 def get_price(message):
 
     cid = message.chat.id
@@ -776,7 +754,7 @@ def get_price(message):
 
     show_properties_list(cid, properties)
 
-    user_state[cid] = State.BUY_MENU
+    user_state[cid] = "buy_menu"
 
 
 # ---------------- GET NUMBER ----------------
@@ -787,7 +765,6 @@ def phone_handler(message):
     cid = message.chat.id
     phone = message.contact.phone_number
 
-    # ذخیره در دیتابیس
     conn = get_connection()
     cur = conn.cursor()
 
@@ -802,7 +779,6 @@ def phone_handler(message):
 
     bot.send_message(cid, "شماره شما ثبت شد ✔️")
 
-    # اگر منتظر درخواست بازدید بود:
     if user_state.get(cid) and user_state[cid].startswith("visit_"):
         property_id = int(user_state[cid].split("_")[1])
         save_visit_request(cid, property_id)
@@ -816,10 +792,8 @@ def visit_request_start(call):
     cid = call.message.chat.id
     property_id = int(call.data.split("_")[1])
 
-    # ذخیره وضعیت
     user_state[cid] = f"visit_{property_id}"
 
-    # کاربر شماره دارد؟
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -835,7 +809,6 @@ def visit_request_start(call):
         bot.answer_callback_query(call.id, "شماره لازم است")
         return
 
-    # اگر شماره داشت → ثبت مستقیم
     save_visit_request(cid, property_id)
     bot.answer_callback_query(call.id)
 
@@ -845,7 +818,7 @@ def visit_request_start(call):
 def rent_handler(message):
 
     cid = message.chat.id
-    user_state[cid] = State.RENT_MENU
+    user_state[cid] = "rent_menu"
 
     bot.send_message(
         cid,
@@ -859,7 +832,7 @@ def show_all_rent(message):
 
     cid = message.chat.id
 
-    if user_state.get(cid) != State.RENT_MENU:
+    if user_state.get(cid) != "rent_menu":
         return
 
     properties = get_all_rent_properties()
@@ -872,10 +845,10 @@ def enter_rent_budget(message):
 
     cid = message.chat.id
 
-    if user_state.get(cid) != State.RENT_MENU:
+    if user_state.get(cid) != "rent_menu":
         return
 
-    user_state[cid] = State.RENT_PRICE
+    user_state[cid] = "rent_price"
 
     bot.send_message(
         cid,
@@ -883,7 +856,7 @@ def enter_rent_budget(message):
     )
 
 
-@bot.message_handler(func=lambda m: user_state.get(m.chat.id) == State.RENT_PRICE)
+@bot.message_handler(func=lambda m: user_state.get(m.chat.id) == "rent_price")
 def get_rent_price(message):
 
     cid = message.chat.id
@@ -903,7 +876,7 @@ def get_rent_price(message):
 
     show_properties_list(cid, properties)
 
-    user_state[cid] = State.RENT_MENU
+    user_state[cid] = "rent_menu"
 
 
 # ---------------- BACK ----------------
@@ -913,7 +886,7 @@ def back_handler(message):
 
     cid = message.chat.id
 
-    user_state[cid] = State.NONE
+    user_state[cid] = "none"
 
     bot.send_message(
         cid,
@@ -947,22 +920,22 @@ def admin_add_property(message):
 
     cid = message.chat.id
 
-    admin_states[cid] = AdminState.ADD_TITLE
+    admin_states[cid] = "admin_add_title"
     admin_data[cid] = {}
 
     bot.send_message(cid, texts["ASK_PROPERTY_TITLE"])
 
-@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == AdminState.ADD_TITLE)
+@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == "admin_add_title")
 def get_title(message):
 
     cid = message.chat.id
 
     admin_data[cid]["title"] = message.text
-    admin_states[cid] = AdminState.ADD_PRICE
+    admin_states[cid] = "admin_add_price"
 
     bot.send_message(cid, texts["ASK_PROPERTY_PRICE"])
 
-@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == AdminState.ADD_PRICE)
+@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == "admin_add_price")
 def admin_get_price(message):
 
     cid = message.chat.id
@@ -973,14 +946,14 @@ def admin_get_price(message):
 
     admin_data[cid]["price"] = int(message.text)
 
-    admin_states[cid] = AdminState.ADD_TYPE
+    admin_states[cid] = "admin_add_type"
 
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(KeyboardButton(texts["TYPE_BUY"]), KeyboardButton(texts["TYPE_RENT"]))
 
     bot.send_message(cid, texts["ASK_PROPERTY_TYPE"], reply_markup=kb)
 
-@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == AdminState.ADD_TYPE)
+@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == "admin_add_type")
 def get_type(message):
 
     cid = message.chat.id
@@ -993,20 +966,20 @@ def get_type(message):
         bot.send_message(cid, texts["INVALID_TYPE"])
         return
 
-    admin_states[cid] = AdminState.ADD_DESC
+    admin_states[cid] = "admin_add_desc"
     bot.send_message(cid, texts["ASK_PROPERTY_DESC"])
 
-@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == AdminState.ADD_DESC)
+@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == "admin_add_desc")
 def get_desc(message):
 
     cid = message.chat.id
 
     admin_data[cid]["description"] = message.text
 
-    admin_states[cid] = AdminState.ADD_METRAJ
+    admin_states[cid] = "admin_add_metraj"
     bot.send_message(cid, texts["ASK_PROPERTY_METRAJ"])
 
-@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == AdminState.ADD_METRAJ)
+@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == "admin_add_metraj")
 def get_metraj(message):
 
     cid = message.chat.id
@@ -1017,10 +990,10 @@ def get_metraj(message):
 
     admin_data[cid]["metraj"] = int(message.text)
 
-    admin_states[cid] = AdminState.ADD_ROOMS
+    admin_states[cid] = "admin_add_rooms"
     bot.send_message(cid, texts["ASK_PROPERTY_ROOMS"])
 
-@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == AdminState.ADD_ROOMS)
+@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == "admin_add_rooms")
 def get_rooms(message):
 
     cid = message.chat.id
@@ -1031,7 +1004,7 @@ def get_rooms(message):
 
     admin_data[cid]["rooms"] = int(message.text)
 
-    admin_states[cid] = AdminState.ADD_PHOTO
+    admin_states[cid] = "admin_add_photo"
     bot.send_message(cid, texts["ASK_PROPERTY_PHOTO"])
 
 
@@ -1095,7 +1068,7 @@ def edit_property(call):
 
     pid = call.data.split("_")[1]
 
-    admin_states[call.message.chat.id] = AdminState.EDIT_TITLE
+    admin_states[call.message.chat.id] = "admin_edit_title"
     admin_data[call.message.chat.id] = {"id": pid}
 
     bot.send_message(
@@ -1103,18 +1076,18 @@ def edit_property(call):
         texts["ASK_EDIT_TITLE"]
     )
 
-@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == AdminState.EDIT_TITLE)
+@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == "admin_edit_title")
 def edit_title(message):
 
     cid = message.chat.id
 
     admin_data[cid]["title"] = message.text
 
-    admin_states[cid] = AdminState.EDIT_PRICE
+    admin_states[cid] = "admin_edit_price"
 
     bot.send_message(cid, texts["ASK_EDIT_PRICE"])
 
-@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == AdminState.EDIT_PRICE)
+@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == "admin_edit_price")
 def edit_price(message):
 
     cid = message.chat.id
@@ -1125,11 +1098,11 @@ def edit_price(message):
 
     admin_data[cid]["price"] = int(message.text)
 
-    admin_states[cid] = AdminState.EDIT_DESC
+    admin_states[cid] = "admin_edit_desc"
 
     bot.send_message(cid, texts["ASK_EDIT_DESC"])
 
-@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == AdminState.EDIT_DESC)
+@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == "admin_edit_desc")
 def edit_desc(message):
 
     cid = message.chat.id
@@ -1157,7 +1130,7 @@ def edit_desc(message):
 
     bot.send_message(cid, texts["PROPERTY_UPDATED"])
 
-    admin_states[cid] = AdminState.NONE
+    admin_states[cid] = "admin_none"
 
 
 @bot.message_handler(content_types=['photo'])
@@ -1165,7 +1138,7 @@ def get_photo(message):
 
     cid = message.chat.id
 
-    if admin_states.get(cid) != AdminState.ADD_PHOTO:
+    if admin_states.get(cid) != "admin_add_photo":
         return
 
     photo_id = message.photo[-1].file_id
@@ -1184,7 +1157,7 @@ def get_photo(message):
 
     bot.send_message(cid, texts["PROPERTY_ADDED"], reply_markup=admin_main_menu())
 
-    admin_states[cid] = AdminState.NONE
+    admin_states[cid] = "admin_none"
     admin_data.pop(cid)
 
 @bot.message_handler(func=lambda m: m.text == texts["ADMIN_MANAGE_PROPERTIES"])
@@ -1315,14 +1288,14 @@ def admin_broadcast(message):
     if not is_admin(message.from_user.id):
         return
 
-    admin_states[message.chat.id] = AdminState.BROADCAST
+    admin_states[message.chat.id] = "admin_broadcast"
 
     bot.send_message(
         message.chat.id,
         texts["ASK_BROADCAST"]
     )
 
-@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == AdminState.BROADCAST, content_types=['text','photo'])
+@bot.message_handler(func=lambda m: admin_states.get(m.chat.id) == "admin_broadcast", content_types=['text','photo'])
 def send_broadcast(message):
 
     users = get_all_users()
@@ -1372,21 +1345,7 @@ def send_broadcast(message):
         )
     )
 
-    admin_states[message.chat.id] = AdminState.NONE
-
-class AdminState:
-
-    NONE = "admin_none"
-
-    ADD_TITLE = "admin_add_title"
-    ADD_PRICE = "admin_add_price"
-    ADD_TYPE = "admin_add_type"
-    ADD_DESC = "admin_add_desc"
-
-    ADD_METRAJ = "admin_add_metraj"
-    ADD_ROOMS = "admin_add_rooms"
-
-    ADD_PHOTO = "admin_add_photo"
+    admin_states[message.chat.id] = "admin_none"
 
 # ---------------- RUN BOT ----------------
 print("robot is runing")

@@ -1,9 +1,6 @@
 # config.py
 import os
 
-PAGE_SIZE = 5
-ITEMS_PER_PAGE = 5
-VISIT_ITEMS_PER_PAGE = 5
 
 
 ADMIN_IDS = [715337548]

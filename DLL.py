@@ -111,7 +111,7 @@ def create_table_visit_requests(database_name):
     scheduled_time DATETIME NULL,
     admin_message TEXT NULL,
     is_successful_deal BOOLEAN DEFAULT FALSE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (property_id) REFERENCES properties(id),
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (admin_id) REFERENCES admins(id)

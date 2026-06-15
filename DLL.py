@@ -1,6 +1,5 @@
 import mysql.connector
-from config import DATABASE_CONFIG,DB_NAME
-
+from config import DATABASE_CONFIG, DB_NAME
 
 
 def drop_n_create_database(DB_NAME):
@@ -42,7 +41,8 @@ CREATE TABLE admins (
     telegram_id BIGINT NOT NULL UNIQUE,
     name VARCHAR(100),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE
+    is_active BOOLEAN DEFAULT TRUE,
+    is_superuser BOOLEAN DEFAULT FALSE
 );
 
     """
@@ -123,10 +123,96 @@ def create_table_visit_requests(database_name):
     conn.close()
 
 
+# ─── Admin helper functions ───────────────────────────────────────
 
-drop_n_create_database(DB_NAME)
-create_table_user(DB_NAME)
-create_table_admin(DB_NAME)
-create_table_properties(DB_NAME)
-create_table_property_images(DB_NAME)
-create_table_visit_requests(DB_NAME)
+def get_connection():
+    return mysql.connector.connect(**DATABASE_CONFIG, database=DB_NAME)
+
+
+def get_admin_level(telegram_id):
+    """
+    Returns: 'superuser' | 'admin' | None
+    """
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute(
+        "SELECT is_superuser FROM admins WHERE telegram_id = %s AND is_active = TRUE LIMIT 1",
+        (telegram_id,)
+    )
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not row:
+        return None
+    return 'superuser' if row['is_superuser'] else 'admin'
+
+
+def get_all_admins():
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT id, telegram_id, name, is_active, is_superuser, created_at FROM admins ORDER BY created_at")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
+
+
+def add_admin(telegram_id, name, is_superuser_flag=False):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO admins (telegram_id, name, is_superuser)
+        VALUES (%s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            name         = VALUES(name),
+            is_active    = TRUE,
+            is_superuser = VALUES(is_superuser)
+        """,
+        (telegram_id, name, is_superuser_flag)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def deactivate_admin(telegram_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE admins SET is_active = FALSE WHERE telegram_id = %s", (telegram_id,))
+    conn.commit()
+    affected = cur.rowcount
+    cur.close()
+    conn.close()
+    return affected > 0
+
+
+def get_stats():
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    stats = {}
+    cur.execute("SELECT COUNT(*) AS c FROM users")
+    stats['total_users'] = cur.fetchone()['c']
+    cur.execute("SELECT COUNT(*) AS c FROM users WHERE is_blocked = TRUE")
+    stats['blocked_users'] = cur.fetchone()['c']
+    cur.execute("SELECT COUNT(*) AS c FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)")
+    stats['new_users_30d'] = cur.fetchone()['c']
+    cur.execute("SELECT COUNT(*) AS c FROM properties WHERE status = 'available'")
+    stats['available_props'] = cur.fetchone()['c']
+    cur.execute("SELECT COUNT(*) AS c FROM properties WHERE status = 'sold'")
+    stats['sold_props'] = cur.fetchone()['c']
+    cur.execute("SELECT COUNT(*) AS c FROM visit_requests WHERE status = 'pending'")
+    stats['pending_visits'] = cur.fetchone()['c']
+    cur.execute("SELECT COUNT(*) AS c FROM visit_requests WHERE is_successful_deal = TRUE")
+    stats['successful_deals'] = cur.fetchone()['c']
+    cur.close()
+    conn.close()
+    return stats
+
+if __name__ == "__main__":
+    drop_n_create_database(DB_NAME)
+    create_table_user(DB_NAME)
+    create_table_admin(DB_NAME)
+    create_table_properties(DB_NAME)
+    create_table_property_images(DB_NAME)
+    create_table_visit_requests(DB_NAME)

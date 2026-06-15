@@ -4,6 +4,7 @@ import re
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from Texts import texts
 from config import BOT_TOKEN, DATABASE_CONFIG, DB_NAME, ADMIN_IDS
+from DLL import get_admin_level, get_all_admins, add_admin, deactivate_admin, get_stats
 
 telebot.apihelper.API_URL="http://tapi.bale.ai/bot{0}/{1}"
 
@@ -15,6 +16,33 @@ def get_connection():
     return mysql.connector.connect(database=DB_NAME,**DATABASE_CONFIG)
 
 # -- visit request --
+
+def update_user_name(telegram_id, name):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET name = %s WHERE telegram_id = %s", (name, telegram_id))
+    conn.commit()
+    affected = cur.rowcount
+    cur.close()
+    conn.close()
+    return affected > 0
+
+def get_user_visit_requests(user_db_id):
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    query = """
+        SELECT vr.id, vr.status, vr.request_time, vr.scheduled_time, vr.admin_message,
+               p.title, p.type, p.price, p.deposit, p.rent
+        FROM visit_requests vr
+        JOIN properties p ON vr.property_id = p.id
+        WHERE vr.user_id = %s
+        ORDER BY vr.request_time DESC
+    """
+    cur.execute(query, (user_db_id,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
 
 def update_user_phone(telegram_id, phone):
     conn = mysql.connector.connect(**DATABASE_CONFIG, database=DB_NAME)
@@ -110,7 +138,40 @@ def admin_menu():
         KeyboardButton("درخواست های بازدید"),
         KeyboardButton("ارسال پیام به همه کاربران")           
     )
+    return markup
 
+def superuser_menu():
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(
+        KeyboardButton("افزودن فایل جدید"),
+        KeyboardButton("مدیریت فایل ها")
+    )
+    markup.add(
+        KeyboardButton("درخواست های بازدید"),
+        KeyboardButton("ارسال پیام به همه کاربران")
+    )
+    # ردیف اختصاصی سوپر یوزر
+    markup.add(
+        KeyboardButton("مدیریت کاربران"),
+        KeyboardButton("مدیریت ادمین ها")
+    )
+    markup.add(KeyboardButton("آمار و گزارش"))
+    return markup
+
+def more_menu_markup():
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton("👤 پروفایل من", callback_data="profile_show"),
+    )
+    return markup
+
+def profile_markup():
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton("✏️ ویرایش شماره تلفن", callback_data="profile_edit_phone"),
+        InlineKeyboardButton("📝 تغییر نام", callback_data="profile_edit_name"),
+        InlineKeyboardButton("📋 درخواست‌های بازدید من", callback_data="profile_my_visits"),
+    )
     return markup
 
 def buy_options_markup():
@@ -134,25 +195,19 @@ def rent_options_markup():
 
 @bot.message_handler(commands=['start'])
 def start_handler(message):
-
     cid = message.chat.id
+    level = get_admin_level(cid)
 
-    if is_admin(cid):
-        bot.send_message(
-        cid,
-        "خوش امدید",
-        reply_markup=admin_menu()
-        )    
-        
+    if level == 'superuser':
+        bot.send_message(cid, "خوش امدید", reply_markup=superuser_menu())
         return
-    
-    register_user(message)   
 
-    bot.send_message(
-        cid,
-        "خوش امدید",
-        reply_markup=main_menu()
-    )
+    if level == 'admin':
+        bot.send_message(cid, "خوش امدید", reply_markup=admin_menu())
+        return
+
+    register_user(message)
+    bot.send_message(cid, "خوش امدید", reply_markup=main_menu())
 
 # ---------------- VERFECATION ----------------
 
@@ -186,16 +241,10 @@ def register_user(message):
     conn.close()
 
 def is_admin(cid):
-    # return cid in ADMIN_IDS
-    return False
-    # try:
-    #     with get_connection() as conn:
-    #         with conn.cursor() as cur:
-    #             cur.execute("SELECT 1 FROM admins WHERE telegram_id = %s", (cid,))
-    #             result = cur.fetchone()
-    #             return result is not None        
-    # except Exception:
-    #     return False
+    return get_admin_level(cid) is not None
+
+def is_superuser(cid):
+    return get_admin_level(cid) == 'superuser'
 
 def normalize_phone_number(phone_text):
     # ۱. تبدیل اعداد فارسی به انگلیسی
@@ -219,6 +268,11 @@ def normalize_phone_number(phone_text):
     return None
 
 # ---------------- MESSAGE HANDLER ----------------
+# -- more --
+@bot.message_handler(func=lambda message: message.text == "بیشتر")
+def more_handler(message):
+    bot.send_message(message.chat.id, "یکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=more_menu_markup())
+
 # -- buy --
 @bot.message_handler(func=lambda message: message.text == "خرید")
 def buy_handler(message):
@@ -261,6 +315,112 @@ def rent_callback_handler(call):
     elif call.data == "rent_by_combo":
         msg = bot.send_message(cid, "شروع جستجوی ترکیبی.\nحداقل **ودیعه** را وارد کنید:")
         bot.register_next_step_handler(msg, process_combo_step, {"step": 1})
+
+# -- profile --
+
+STATUS_FA = {
+    'pending':  '🕐 در انتظار بررسی',
+    'accepted': '✅ تأیید شده',
+    'rejected': '❌ رد شده',
+}
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("profile_"))
+def profile_callback_handler(call):
+    cid = call.message.chat.id
+    telegram_id = call.from_user.id
+
+    if call.data == "profile_show":
+        user = get_user_by_telegram_id(telegram_id)
+        if not user:
+            bot.answer_callback_query(call.id, "خطا: کاربر یافت نشد.")
+            return
+
+        name     = user.get('name') or '—'
+        username = f"@{user['username']}" if user.get('username') else '—'
+        phone    = user.get('phone') or 'ثبت نشده'
+        joined   = user['created_at'].strftime('%Y/%m/%d') if user.get('created_at') else '—'
+
+        text = (
+            f"👤 *پروفایل من*\n\n"
+            f"📛 نام: {name}\n"
+            f"🔗 یوزرنیم: {username}\n"
+            f"📱 شماره موبایل: {phone}\n"
+            f"📅 تاریخ عضویت: {joined}"
+        )
+        bot.send_message(cid, text, parse_mode='Markdown', reply_markup=profile_markup())
+
+    elif call.data == "profile_edit_phone":
+        msg = bot.send_message(cid, "📱 شماره موبایل جدید خود را وارد کنید (مثال: 09xxxxxxxxx):")
+        bot.register_next_step_handler(msg, process_profile_phone_step)
+
+    elif call.data == "profile_edit_name":
+        msg = bot.send_message(cid, "📝 نام جدید خود را وارد کنید:")
+        bot.register_next_step_handler(msg, process_profile_name_step)
+
+    elif call.data == "profile_my_visits":
+        user_db_id = get_user_id_by_telegram_id(telegram_id)
+        if not user_db_id:
+            bot.answer_callback_query(call.id, "خطا: کاربر یافت نشد.")
+            return
+
+        requests = get_user_visit_requests(user_db_id)
+
+        if not requests:
+            bot.send_message(cid, "📋 شما هنوز هیچ درخواست بازدیدی ثبت نکرده‌اید.")
+            return
+
+        bot.send_message(cid, f"📋 *درخواست‌های بازدید شما* ({len(requests)} مورد):", parse_mode='Markdown')
+
+        for req in requests:
+            status_fa = STATUS_FA.get(req['status'], req['status'])
+            prop_type = 'خرید' if req['type'] == 'buy' else 'اجاره'
+
+            if req['type'] == 'buy':
+                price_line = f"💰 قیمت: {req['price']:,} تومان" if req.get('price') else ""
+            else:
+                price_line = (
+                    f"💰 ودیعه: {req['deposit']:,} تومان\n"
+                    f"💸 اجاره: {req['rent']:,} تومان"
+                ) if req.get('deposit') else ""
+
+            scheduled = ""
+            if req.get('scheduled_time'):
+                scheduled = f"\n🗓 زمان بازدید: {req['scheduled_time'].strftime('%Y/%m/%d %H:%M')}"
+
+            admin_msg = ""
+            if req.get('admin_message'):
+                admin_msg = f"\n💬 پیام مشاور: {req['admin_message']}"
+
+            text = (
+                f"🏠 *{req['title']}* ({prop_type})\n"
+                f"{price_line}\n"
+                f"📌 وضعیت: {status_fa}\n"
+                f"🕐 تاریخ درخواست: {req['request_time'].strftime('%Y/%m/%d')}"
+                f"{scheduled}{admin_msg}"
+            )
+            bot.send_message(cid, text, parse_mode='Markdown')
+
+# -- profile steps --
+
+def process_profile_phone_step(message):
+    cid = message.chat.id
+    phone = normalize_phone_number(message.text)
+    if not phone:
+        msg = bot.send_message(cid, "❌ شماره نامعتبر است. لطفاً با فرمت 09xxxxxxxxx وارد کنید:")
+        bot.register_next_step_handler(msg, process_profile_phone_step)
+        return
+    update_user_phone(message.from_user.id, phone)
+    bot.send_message(cid, f"✅ شماره موبایل با موفقیت به {phone} تغییر یافت.")
+
+def process_profile_name_step(message):
+    cid = message.chat.id
+    name = message.text.strip()
+    if len(name) < 2 or len(name) > 50:
+        msg = bot.send_message(cid, "❌ نام باید بین ۲ تا ۵۰ کاراکتر باشد. دوباره وارد کنید:")
+        bot.register_next_step_handler(msg, process_profile_name_step)
+        return
+    update_user_name(message.from_user.id, name)
+    bot.send_message(cid, f"✅ نام شما با موفقیت به «{name}» تغییر یافت.")
 
 # -- visit request --
 
@@ -525,6 +685,359 @@ def normalize_number(text):
     clean_text = text.translate(translation_table).replace(',', '').replace('،', '').strip()
     
     return int(clean_text) if clean_text.isdigit() else None
+
+
+# ================ ADMIN PANEL ================
+
+# -- درخواست های بازدید (ادمین) --
+
+@bot.message_handler(func=lambda m: m.text == "درخواست های بازدید" and is_admin(m.chat.id))
+def admin_visit_requests(message):
+    cid = message.chat.id
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT vr.id, vr.status, vr.request_time,
+               u.name AS user_name, u.phone AS user_phone, u.telegram_id AS user_tid,
+               p.title AS prop_title
+        FROM visit_requests vr
+        JOIN users u ON vr.user_id = u.id
+        JOIN properties p ON vr.property_id = p.id
+        WHERE vr.status = 'pending'
+        ORDER BY vr.request_time ASC
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    if not rows:
+        bot.send_message(cid, "📋 هیچ درخواست در انتظاری وجود ندارد.")
+        return
+
+    bot.send_message(cid, f"📋 *درخواست‌های pending* ({len(rows)} مورد):", parse_mode='Markdown')
+    for req in rows:
+        text = (
+            f"🏠 ملک: {req['prop_title']}\n"
+            f"👤 کاربر: {req['user_name'] or '—'}\n"
+            f"📱 تلفن: {req['user_phone'] or 'ثبت نشده'}\n"
+            f"🕐 زمان درخواست: {req['request_time'].strftime('%Y/%m/%d %H:%M')}"
+        )
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            InlineKeyboardButton("✅ تأیید", callback_data=f"vr_accept_{req['id']}"),
+            InlineKeyboardButton("❌ رد",    callback_data=f"vr_reject_{req['id']}"),
+        )
+        bot.send_message(cid, text, reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("vr_accept_") or c.data.startswith("vr_reject_"))
+def admin_handle_visit(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+    parts  = call.data.split("_")
+    action = parts[1]
+    vr_id  = int(parts[2])
+
+    if action == "accept":
+        msg = bot.send_message(cid, "📅 زمان بازدید را وارد کنید:")
+        bot.register_next_step_handler(msg, admin_set_visit_time, vr_id)
+    else:
+        msg = bot.send_message(cid, "💬 دلیل رد درخواست را بنویسید (یا «—» برای بدون دلیل):")
+        bot.register_next_step_handler(msg, admin_reject_visit, vr_id)
+    bot.delete_message(cid, call.message.message_id)
+
+
+def admin_set_visit_time(message, vr_id):
+    cid = message.chat.id
+    scheduled = message.text.strip()
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT u.telegram_id AS user_tid, p.title
+        FROM visit_requests vr
+        JOIN users u ON vr.user_id = u.id
+        JOIN properties p ON vr.property_id = p.id
+        WHERE vr.id = %s
+    """, (vr_id,))
+    row = cur.fetchone()
+    cur.execute("""
+        UPDATE visit_requests
+        SET status = 'accepted', admin_message = %s,
+            admin_id = (SELECT id FROM admins WHERE telegram_id = %s LIMIT 1)
+        WHERE id = %s
+    """, (f"زمان بازدید: {scheduled}", cid, vr_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    bot.send_message(cid, f"✅ درخواست تأیید شد. زمان: {scheduled}")
+    if row:
+        bot.send_message(
+            row['user_tid'],
+            f"✅ درخواست بازدید شما برای *{row['title']}* تأیید شد!\n🗓 زمان: {scheduled}",
+            parse_mode='Markdown'
+        )
+
+
+def admin_reject_visit(message, vr_id):
+    cid = message.chat.id
+    reason = message.text.strip()
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT u.telegram_id AS user_tid, p.title
+        FROM visit_requests vr
+        JOIN users u ON vr.user_id = u.id
+        JOIN properties p ON vr.property_id = p.id
+        WHERE vr.id = %s
+    """, (vr_id,))
+    row = cur.fetchone()
+    cur.execute("""
+        UPDATE visit_requests
+        SET status = 'rejected', admin_message = %s,
+            admin_id = (SELECT id FROM admins WHERE telegram_id = %s LIMIT 1)
+        WHERE id = %s
+    """, (reason if reason != '—' else None, cid, vr_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    bot.send_message(cid, "❌ درخواست رد شد.")
+    if row:
+        user_text = f"❌ متأسفانه درخواست بازدید شما برای *{row['title']}* رد شد."
+        if reason != '—':
+            user_text += f"\n💬 دلیل: {reason}"
+        bot.send_message(row['user_tid'], user_text, parse_mode='Markdown')
+
+
+# -- ارسال پیام به همه کاربران --
+
+@bot.message_handler(func=lambda m: m.text == "ارسال پیام به همه کاربران" and is_admin(m.chat.id))
+def admin_broadcast_start(message):
+    cid = message.chat.id
+    msg = bot.send_message(cid, "✍️ متن پیام را بنویسید:")
+    bot.register_next_step_handler(msg, admin_broadcast_send)
+
+
+def admin_broadcast_send(message):
+    cid = message.chat.id
+    text = message.text.strip()
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT telegram_id FROM users WHERE is_blocked = FALSE")
+    users = cur.fetchall()
+    cur.close()
+    conn.close()
+    sent, failed = 0, 0
+    for u in users:
+        try:
+            bot.send_message(u['telegram_id'], f"📢 *پیام از مشاور:*\n\n{text}", parse_mode='Markdown')
+            sent += 1
+        except Exception:
+            failed += 1
+    bot.send_message(cid, f"✅ ارسال تمام شد.\n📤 موفق: {sent} | ❌ ناموفق: {failed}")
+
+
+# ================ SUPERUSER PANEL ================
+
+# -- مدیریت کاربران --
+
+@bot.message_handler(func=lambda m: m.text == "مدیریت کاربران" and is_superuser(m.chat.id))
+def superuser_users(message):
+    cid = message.chat.id
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT id, telegram_id, name, username, phone, is_blocked FROM users ORDER BY created_at DESC LIMIT 30")
+    users = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    if not users:
+        bot.send_message(cid, "هیچ کاربری ثبت نشده.")
+        return
+
+    markup = InlineKeyboardMarkup(row_width=1)
+    for u in users:
+        blocked = "🔴" if u['is_blocked'] else "🟢"
+        label   = u['name'] or u['username'] or str(u['telegram_id'])
+        markup.add(InlineKeyboardButton(f"{blocked} {label}", callback_data=f"suuser_{u['id']}"))
+    bot.send_message(cid, f"👥 *کاربران* ({len(users)} مورد):", parse_mode='Markdown', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("suuser_"))
+def superuser_user_detail(call):
+    cid = call.message.chat.id
+    if not is_superuser(cid):
+        return
+    user_id = int(call.data.split("_")[1])
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+    u = cur.fetchone()
+    cur.execute("SELECT COUNT(*) AS cnt FROM visit_requests WHERE user_id = %s", (user_id,))
+    visit_cnt = cur.fetchone()['cnt']
+    cur.close()
+    conn.close()
+    if not u:
+        bot.answer_callback_query(call.id, "کاربر پیدا نشد.")
+        return
+    status = "🔴 بلاک" if u['is_blocked'] else "🟢 فعال"
+    text = (
+        f"👤 *{u['name'] or '—'}*\n"
+        f"🔗 @{u['username'] or '—'}\n"
+        f"📱 {u['phone'] or 'ثبت نشده'}\n"
+        f"🆔 `{u['telegram_id']}`\n"
+        f"📋 درخواست‌های بازدید: {visit_cnt}\n"
+        f"📌 وضعیت: {status}"
+    )
+    action_btn = (
+        InlineKeyboardButton("🔓 رفع بلاک", callback_data=f"unblock_{user_id}")
+        if u['is_blocked'] else
+        InlineKeyboardButton("🚫 بلاک", callback_data=f"block_{user_id}")
+    )
+    markup = InlineKeyboardMarkup()
+    markup.add(action_btn)
+    bot.send_message(cid, text, parse_mode='Markdown', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("block_") or c.data.startswith("unblock_"))
+def superuser_toggle_block(call):
+    cid = call.message.chat.id
+    if not is_superuser(cid):
+        return
+    action  = "block" if call.data.startswith("block_") else "unblock"
+    user_id = int(call.data.split("_")[1])
+    new_val = True if action == "block" else False
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET is_blocked = %s WHERE id = %s", (new_val, user_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    label = "🚫 بلاک شد" if new_val else "🔓 رفع بلاک شد"
+    bot.answer_callback_query(call.id, label)
+    bot.delete_message(cid, call.message.message_id)
+
+
+# -- مدیریت ادمین ها --
+
+@bot.message_handler(func=lambda m: m.text == "مدیریت ادمین ها" and is_superuser(m.chat.id))
+def superuser_admins(message):
+    cid = message.chat.id
+    admins = get_all_admins()
+    markup = InlineKeyboardMarkup(row_width=1)
+    for a in admins:
+        crown  = "👑" if a['is_superuser'] else "🔧"
+        active = "✅" if a['is_active']    else "🔴"
+        markup.add(InlineKeyboardButton(
+            f"{crown} {a['name'] or a['telegram_id']} {active}",
+            callback_data=f"suadmin_{a['id']}"
+        ))
+    markup.add(InlineKeyboardButton("➕ افزودن ادمین جدید", callback_data="suadmin_add"))
+    bot.send_message(cid, f"🛡️ *ادمین‌ها* ({len(admins)} نفر):", parse_mode='Markdown', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data == "suadmin_add")
+def superuser_add_admin_start(call):
+    cid = call.message.chat.id
+    if not is_superuser(cid):
+        return
+    msg = bot.send_message(cid, "🆔 آیدی عددی تلگرام ادمین جدید را وارد کنید:")
+    bot.register_next_step_handler(msg, superuser_add_admin_step2)
+
+
+def superuser_add_admin_step2(message):
+    cid = message.chat.id
+    if not message.text.strip().isdigit():
+        bot.send_message(cid, "❌ آیدی باید فقط عدد باشد.")
+        return
+    tid = int(message.text.strip())
+    msg = bot.send_message(cid, "📛 نام ادمین جدید را وارد کنید:")
+    bot.register_next_step_handler(msg, superuser_add_admin_step3, tid)
+
+
+def superuser_add_admin_step3(message, tid):
+    cid = message.chat.id
+    name = message.text.strip()
+    markup = InlineKeyboardMarkup()
+    markup.add(
+        InlineKeyboardButton("👑 سوپر یوزر",    callback_data=f"addadmin_{tid}_{name}_super"),
+        InlineKeyboardButton("🔧 ادمین معمولی", callback_data=f"addadmin_{tid}_{name}_normal"),
+    )
+    bot.send_message(cid, f"سطح دسترسی *{name}* را انتخاب کنید:", parse_mode='Markdown', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("addadmin_"))
+def superuser_confirm_add_admin(call):
+    cid = call.message.chat.id
+    if not is_superuser(cid):
+        return
+    # addadmin_{tid}_{name}_{super|normal}
+    parts = call.data.split("_", 3)
+    tid   = int(parts[1])
+    name  = parts[2]
+    level = parts[3]
+    add_admin(tid, name, is_superuser_flag=(level == "super"))
+    label = "👑 سوپر یوزر" if level == "super" else "🔧 ادمین معمولی"
+    bot.answer_callback_query(call.id, "✅ ادمین اضافه شد.")
+    bot.edit_message_text(f"✅ *{name}* به عنوان {label} اضافه شد.", cid, call.message.message_id, parse_mode='Markdown')
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("suadmin_") and c.data != "suadmin_add")
+def superuser_admin_detail(call):
+    cid = call.message.chat.id
+    if not is_superuser(cid):
+        return
+    admin_id = int(call.data.split("_")[1])
+    admins = get_all_admins()
+    a = next((x for x in admins if x['id'] == admin_id), None)
+    if not a:
+        bot.answer_callback_query(call.id, "ادمین پیدا نشد.")
+        return
+    crown  = "👑 سوپر یوزر" if a['is_superuser'] else "🔧 ادمین معمولی"
+    active = "✅ فعال" if a['is_active'] else "🔴 غیرفعال"
+    text = (
+        f"*{a['name'] or '—'}*\n"
+        f"🆔 `{a['telegram_id']}`\n"
+        f"🏷 {crown}\n"
+        f"📌 {active}"
+    )
+    markup = InlineKeyboardMarkup()
+    if a['is_active']:
+        markup.add(InlineKeyboardButton("🔴 غیرفعال‌سازی", callback_data=f"deactivateadmin_{a['telegram_id']}"))
+    bot.send_message(cid, text, parse_mode='Markdown', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("deactivateadmin_"))
+def superuser_deactivate_admin(call):
+    cid = call.message.chat.id
+    if not is_superuser(cid):
+        return
+    tid = int(call.data.split("_")[1])
+    deactivate_admin(tid)
+    bot.answer_callback_query(call.id, "🔴 ادمین غیرفعال شد.")
+    bot.delete_message(cid, call.message.message_id)
+
+
+# -- آمار و گزارش --
+
+@bot.message_handler(func=lambda m: m.text == "آمار و گزارش" and is_superuser(m.chat.id))
+def superuser_stats(message):
+    cid = message.chat.id
+    s = get_stats()
+    text = (
+        "📊 *آمار کلی سیستم*\n\n"
+        f"👥 کاربران:\n"
+        f"  • کل: {s['total_users']}\n"
+        f"  • بلاک‌شده: {s['blocked_users']}\n"
+        f"  • عضو ۳۰ روز اخیر: {s['new_users_30d']}\n\n"
+        f"🏠 ملک‌ها:\n"
+        f"  • موجود: {s['available_props']}\n"
+        f"  • فروخته‌شده: {s['sold_props']}\n\n"
+        f"📋 درخواست‌های بازدید:\n"
+        f"  • در انتظار: {s['pending_visits']}\n"
+        f"  • معاملات موفق: {s['successful_deals']}"
+    )
+    bot.send_message(cid, text, parse_mode='Markdown')
 
 
 # ---------------- LISTENER ----------------

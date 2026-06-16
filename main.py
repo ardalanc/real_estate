@@ -464,7 +464,6 @@ def handle_visit_confirmation(call):
         bot.answer_callback_query(call.id, "موفقیت‌آمیز!")
         bot.edit_message_text("✅ درخواست شما با موفقیت ثبت شد. مشاور به‌زودی با شما تماس می‌گیرد.", cid, call.message.message_id)
 
-
 # ---------------- FUNCTION ----------------
 # -- buy --
 
@@ -685,7 +684,6 @@ def normalize_number(text):
     
     return int(clean_text) if clean_text.isdigit() else None
 
-
 # ================ ADMIN PANEL ================
 
 # -- درخواست های بازدید (ادمین) --
@@ -728,7 +726,6 @@ def admin_visit_requests(message):
         )
         bot.send_message(cid, text, reply_markup=markup)
 
-
 @bot.callback_query_handler(func=lambda c: c.data.startswith("vr_accept_") or c.data.startswith("vr_reject_"))
 def admin_handle_visit(call):
     cid = call.message.chat.id
@@ -745,7 +742,6 @@ def admin_handle_visit(call):
         msg = bot.send_message(cid, "💬 دلیل رد درخواست را بنویسید (یا «—» برای بدون دلیل):")
         bot.register_next_step_handler(msg, admin_reject_visit, vr_id)
     bot.delete_message(cid, call.message.message_id)
-
 
 def admin_set_visit_time(message, vr_id):
     cid = message.chat.id
@@ -807,7 +803,6 @@ def admin_reject_visit(message, vr_id):
             user_text += f"\n💬 دلیل: {reason}"
         bot.send_message(row['user_tid'], user_text, parse_mode='Markdown')
 
-
 # ================ افزودن فایل جدید ================
 
 @bot.message_handler(func=lambda m: m.text == "افزودن فایل جدید" and is_admin(m.chat.id))
@@ -820,7 +815,6 @@ def admin_add_property_start(message):
     )
     bot.send_message(cid, "نوع ملک را انتخاب کنید:", reply_markup=markup)
 
-
 @bot.callback_query_handler(func=lambda c: c.data.startswith("newprop_type_"))
 def admin_add_property_type(call):
     cid = call.message.chat.id
@@ -830,7 +824,6 @@ def admin_add_property_type(call):
     bot.delete_message(cid, call.message.message_id)
     msg = bot.send_message(cid, "📛 عنوان ملک را وارد کنید:")
     bot.register_next_step_handler(msg, admin_add_property_title, {"type": prop_type})
-
 
 def admin_add_property_title(message, data):
     cid = message.chat.id
@@ -843,13 +836,11 @@ def admin_add_property_title(message, data):
     msg = bot.send_message(cid, "📝 توضیحات ملک را وارد کنید:")
     bot.register_next_step_handler(msg, admin_add_property_description, data)
 
-
 def admin_add_property_description(message, data):
     cid = message.chat.id
     data['description'] = message.text.strip()
     msg = bot.send_message(cid, "📐 متراژ ملک را وارد کنید (عدد):")
     bot.register_next_step_handler(msg, admin_add_property_metraj, data)
-
 
 def admin_add_property_metraj(message, data):
     cid = message.chat.id
@@ -861,7 +852,6 @@ def admin_add_property_metraj(message, data):
     data['metraj'] = val
     msg = bot.send_message(cid, "🛏 تعداد اتاق‌ها را وارد کنید (عدد):")
     bot.register_next_step_handler(msg, admin_add_property_rooms, data)
-
 
 def admin_add_property_rooms(message, data):
     cid = message.chat.id
@@ -878,7 +868,6 @@ def admin_add_property_rooms(message, data):
     else:
         msg = bot.send_message(cid, "💰 مبلغ ودیعه (رهن) را به تومان وارد کنید:")
         bot.register_next_step_handler(msg, admin_add_property_deposit, data)
-
 
 def admin_add_property_price(message, data):
     cid = message.chat.id
@@ -902,7 +891,6 @@ def admin_add_property_price(message, data):
     )
     bot.register_next_step_handler(msg, admin_add_property_photo, data)
 
-
 def admin_add_property_deposit(message, data):
     cid = message.chat.id
     val = normalize_number(message.text)
@@ -913,7 +901,6 @@ def admin_add_property_deposit(message, data):
     data['deposit'] = val
     msg = bot.send_message(cid, "💸 مبلغ اجاره ماهانه را به تومان وارد کنید:")
     bot.register_next_step_handler(msg, admin_add_property_rent, data)
-
 
 def admin_add_property_rent(message, data):
     cid = message.chat.id
@@ -936,8 +923,6 @@ def admin_add_property_rent(message, data):
     )
     bot.register_next_step_handler(msg, admin_add_property_photo, data)
 
-
-# ذخیره‌سازی موقت داده‌های فایل جدید به ازای هر ادمین
 _pending_property_data = {}
 
 @bot.callback_query_handler(func=lambda c: c.data == "newprop_photos_done")
@@ -953,7 +938,6 @@ def admin_add_property_photos_done(call):
         return
 
     _save_property_and_notify(cid, call.message.message_id, data)
-
 
 def admin_add_property_photo(message, data):
     """Override: ثبت عکس‌ها و ذخیره data در dict موقت"""
@@ -981,7 +965,6 @@ def admin_add_property_photo(message, data):
             )
         )
         bot.register_next_step_handler(msg, admin_add_property_photo, data)
-
 
 def _save_property_and_notify(cid, msg_id, data):
     conn = get_connection()
@@ -1020,7 +1003,6 @@ def _save_property_and_notify(cid, msg_id, data):
         reply_markup=admin_menu() if not is_superuser(cid) else superuser_menu()
     )
 
-
 # ================ مدیریت فایل‌ها ================
 
 @bot.message_handler(func=lambda m: m.text == "مدیریت فایل ها" and is_admin(m.chat.id))
@@ -1033,7 +1015,6 @@ def admin_manage_properties(message):
     )
     markup.add(InlineKeyboardButton("📋 همه فایل‌ها", callback_data="mgprop_list_all"))
     bot.send_message(cid, "کدام دسته فایل‌ها را می‌خواهید مدیریت کنید؟", reply_markup=markup)
-
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_list_"))
 def admin_manage_list(call):
@@ -1068,7 +1049,6 @@ def admin_manage_list(call):
         label = f"{icon} [{TYPE_FA.get(r['type'], r['type'])}] {r['title']}"
         markup.add(InlineKeyboardButton(label, callback_data=f"mgprop_detail_{r['id']}"))
     bot.send_message(cid, f"📂 فایل‌ها ({len(rows)} مورد):", reply_markup=markup)
-
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_detail_"))
 def admin_manage_detail(call):
@@ -1127,7 +1107,6 @@ def admin_manage_detail(call):
 
     bot.send_message(cid, text, parse_mode='Markdown', reply_markup=markup)
 
-
 # -- تغییر وضعیت --
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_status_"))
@@ -1148,7 +1127,6 @@ def admin_change_status(call):
     bot.answer_callback_query(call.id, f"✅ وضعیت به «{STATUS_FA.get(new_status)}» تغییر یافت.")
     bot.delete_message(cid, call.message.message_id)
 
-
 # -- ویرایش عنوان --
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_edit_title_"))
@@ -1159,7 +1137,6 @@ def admin_edit_title_start(call):
     prop_id = int(call.data.split("_")[4])
     msg = bot.send_message(cid, "✏️ عنوان جدید ملک را وارد کنید:")
     bot.register_next_step_handler(msg, admin_edit_title_save, prop_id)
-
 
 def admin_edit_title_save(message, prop_id):
     cid = message.chat.id
@@ -1176,7 +1153,6 @@ def admin_edit_title_save(message, prop_id):
     conn.close()
     bot.send_message(cid, f"✅ عنوان با موفقیت به «{new_title}» تغییر یافت.")
 
-
 # -- ویرایش توضیحات --
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_edit_desc_"))
@@ -1188,7 +1164,6 @@ def admin_edit_desc_start(call):
     msg = bot.send_message(cid, "📝 توضیحات جدید را وارد کنید:")
     bot.register_next_step_handler(msg, admin_edit_desc_save, prop_id)
 
-
 def admin_edit_desc_save(message, prop_id):
     cid = message.chat.id
     conn = get_connection()
@@ -1198,7 +1173,6 @@ def admin_edit_desc_save(message, prop_id):
     cur.close()
     conn.close()
     bot.send_message(cid, "✅ توضیحات با موفقیت بروزرسانی شد.")
-
 
 # -- ویرایش قیمت --
 
@@ -1224,7 +1198,6 @@ def admin_edit_price_start(call):
         msg = bot.send_message(cid, "💰 ودیعه (رهن) جدید را به تومان وارد کنید:")
         bot.register_next_step_handler(msg, admin_edit_deposit_save, prop_id)
 
-
 def admin_edit_price_save(message, prop_id, prop_type):
     cid = message.chat.id
     val = normalize_number(message.text)
@@ -1239,7 +1212,6 @@ def admin_edit_price_save(message, prop_id, prop_type):
     cur.close()
     conn.close()
     bot.send_message(cid, f"✅ قیمت با موفقیت به {val:,} تومان تغییر یافت.")
-
 
 def admin_edit_deposit_save(message, prop_id):
     cid = message.chat.id
@@ -1257,7 +1229,6 @@ def admin_edit_deposit_save(message, prop_id):
     msg = bot.send_message(cid, f"✅ ودیعه ثبت شد: {val:,} تومان\n💸 اجاره ماهانه جدید را وارد کنید:")
     bot.register_next_step_handler(msg, admin_edit_rent_save, prop_id)
 
-
 def admin_edit_rent_save(message, prop_id):
     cid = message.chat.id
     val = normalize_number(message.text)
@@ -1272,7 +1243,6 @@ def admin_edit_rent_save(message, prop_id):
     cur.close()
     conn.close()
     bot.send_message(cid, f"✅ اجاره ماهانه با موفقیت به {val:,} تومان تغییر یافت.")
-
 
 # -- مدیریت عکس‌ها --
 
@@ -1311,7 +1281,6 @@ def admin_manage_photos(call):
     )
     bot.send_message(cid, "برای افزودن عکس جدید:", reply_markup=markup)
 
-
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_delphoto_"))
 def admin_delete_photo(call):
     cid = call.message.chat.id
@@ -1329,7 +1298,6 @@ def admin_delete_photo(call):
     bot.answer_callback_query(call.id, "🗑 عکس حذف شد.")
     bot.delete_message(cid, call.message.message_id)
 
-
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_addphoto_"))
 def admin_add_photo_start(call):
     cid = call.message.chat.id
@@ -1338,7 +1306,6 @@ def admin_add_photo_start(call):
     prop_id = int(call.data.split("_")[3])
     msg = bot.send_message(cid, "🖼 عکس جدید را ارسال کنید:")
     bot.register_next_step_handler(msg, admin_add_photo_save, prop_id)
-
 
 def admin_add_photo_save(message, prop_id):
     cid = message.chat.id
@@ -1358,7 +1325,6 @@ def admin_add_photo_save(message, prop_id):
     )
     bot.send_message(cid, "✅ عکس جدید با موفقیت اضافه شد.", reply_markup=markup)
 
-
 # -- حذف فایل --
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_delete_"))
@@ -1373,7 +1339,6 @@ def admin_delete_property_confirm(call):
         InlineKeyboardButton("❌ انصراف", callback_data="mgprop_canceldelete"),
     )
     bot.send_message(cid, "⚠️ آیا مطمئن هستید؟ این عملیات برگشت‌ناپذیر است.", reply_markup=markup)
-
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_confirmdelete_"))
 def admin_delete_property_execute(call):
@@ -1391,12 +1356,10 @@ def admin_delete_property_execute(call):
     bot.answer_callback_query(call.id, "🗑 فایل حذف شد.")
     bot.edit_message_text("✅ فایل با موفقیت از سیستم حذف شد.", cid, call.message.message_id)
 
-
 @bot.callback_query_handler(func=lambda c: c.data == "mgprop_canceldelete")
 def admin_cancel_delete(call):
     bot.answer_callback_query(call.id, "عملیات لغو شد.")
     bot.delete_message(call.message.chat.id, call.message.message_id)
-
 
 # -- ارسال پیام به همه کاربران --
 
@@ -1405,7 +1368,6 @@ def admin_broadcast_start(message):
     cid = message.chat.id
     msg = bot.send_message(cid, "✍️ متن پیام را بنویسید:")
     bot.register_next_step_handler(msg, admin_broadcast_send)
-
 
 def admin_broadcast_send(message):
     cid = message.chat.id
@@ -1424,7 +1386,6 @@ def admin_broadcast_send(message):
         except Exception:
             failed += 1
     bot.send_message(cid, f"✅ ارسال تمام شد.\n📤 موفق: {sent} | ❌ ناموفق: {failed}")
-
 
 # ================ SUPERUSER PANEL ================
 
@@ -1450,7 +1411,6 @@ def superuser_users(message):
         label   = u['name'] or u['username'] or str(u['telegram_id'])
         markup.add(InlineKeyboardButton(f"{blocked} {label}", callback_data=f"suuser_{u['id']}"))
     bot.send_message(cid, f"👥 *کاربران* ({len(users)} مورد):", parse_mode='Markdown', reply_markup=markup)
-
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("suuser_"))
 def superuser_user_detail(call):
@@ -1487,7 +1447,6 @@ def superuser_user_detail(call):
     markup.add(action_btn)
     bot.send_message(cid, text, parse_mode='Markdown', reply_markup=markup)
 
-
 @bot.callback_query_handler(func=lambda c: c.data.startswith("block_") or c.data.startswith("unblock_"))
 def superuser_toggle_block(call):
     cid = call.message.chat.id
@@ -1506,7 +1465,6 @@ def superuser_toggle_block(call):
     bot.answer_callback_query(call.id, label)
     bot.delete_message(cid, call.message.message_id)
 
-
 # -- مدیریت ادمین ها --
 
 @bot.message_handler(func=lambda m: m.text == "مدیریت ادمین ها" and is_superuser(m.chat.id))
@@ -1524,7 +1482,6 @@ def superuser_admins(message):
     markup.add(InlineKeyboardButton("➕ افزودن ادمین جدید", callback_data="suadmin_add"))
     bot.send_message(cid, f"🛡️ *ادمین‌ها* ({len(admins)} نفر):", parse_mode='Markdown', reply_markup=markup)
 
-
 @bot.callback_query_handler(func=lambda c: c.data == "suadmin_add")
 def superuser_add_admin_start(call):
     cid = call.message.chat.id
@@ -1532,7 +1489,6 @@ def superuser_add_admin_start(call):
         return
     msg = bot.send_message(cid, "🆔 آیدی عددی تلگرام ادمین جدید را وارد کنید:")
     bot.register_next_step_handler(msg, superuser_add_admin_step2)
-
 
 def superuser_add_admin_step2(message):
     cid = message.chat.id
@@ -1543,7 +1499,6 @@ def superuser_add_admin_step2(message):
     msg = bot.send_message(cid, "📛 نام ادمین جدید را وارد کنید:")
     bot.register_next_step_handler(msg, superuser_add_admin_step3, tid)
 
-
 def superuser_add_admin_step3(message, tid):
     cid = message.chat.id
     name = message.text.strip()
@@ -1553,7 +1508,6 @@ def superuser_add_admin_step3(message, tid):
         InlineKeyboardButton("🔧 ادمین معمولی", callback_data=f"addadmin_{tid}_{name}_normal"),
     )
     bot.send_message(cid, f"سطح دسترسی *{name}* را انتخاب کنید:", parse_mode='Markdown', reply_markup=markup)
-
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("addadmin_"))
 def superuser_confirm_add_admin(call):
@@ -1569,7 +1523,6 @@ def superuser_confirm_add_admin(call):
     label = "👑 سوپر یوزر" if level == "super" else "🔧 ادمین معمولی"
     bot.answer_callback_query(call.id, "✅ ادمین اضافه شد.")
     bot.edit_message_text(f"✅ *{name}* به عنوان {label} اضافه شد.", cid, call.message.message_id, parse_mode='Markdown')
-
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("suadmin_") and c.data != "suadmin_add")
 def superuser_admin_detail(call):
@@ -1595,7 +1548,6 @@ def superuser_admin_detail(call):
         markup.add(InlineKeyboardButton("🔴 غیرفعال‌سازی", callback_data=f"deactivateadmin_{a['telegram_id']}"))
     bot.send_message(cid, text, parse_mode='Markdown', reply_markup=markup)
 
-
 @bot.callback_query_handler(func=lambda c: c.data.startswith("deactivateadmin_"))
 def superuser_deactivate_admin(call):
     cid = call.message.chat.id
@@ -1605,7 +1557,6 @@ def superuser_deactivate_admin(call):
     deactivate_admin(tid)
     bot.answer_callback_query(call.id, "🔴 ادمین غیرفعال شد.")
     bot.delete_message(cid, call.message.message_id)
-
 
 # -- آمار و گزارش --
 
@@ -1627,7 +1578,6 @@ def superuser_stats(message):
         f"  • معاملات موفق: {s['successful_deals']}"
     )
     bot.send_message(cid, text, parse_mode='Markdown')
-
 
 # ---------------- LISTENER ----------------
 

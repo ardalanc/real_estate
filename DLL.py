@@ -122,12 +122,10 @@ def create_table_visit_requests(database_name):
     cur.close()
     conn.close()
 
-
 # ─── Admin helper functions ───────────────────────────────────────
 
 def get_connection():
     return mysql.connector.connect(**DATABASE_CONFIG, database=DB_NAME)
-
 
 def get_admin_level(telegram_id):
     """
@@ -146,7 +144,6 @@ def get_admin_level(telegram_id):
         return None
     return 'superuser' if row['is_superuser'] else 'admin'
 
-
 def get_all_admins():
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
@@ -155,7 +152,6 @@ def get_all_admins():
     cur.close()
     conn.close()
     return rows
-
 
 def add_admin(telegram_id, name, is_superuser_flag=False):
     conn = get_connection()
@@ -175,7 +171,6 @@ def add_admin(telegram_id, name, is_superuser_flag=False):
     cur.close()
     conn.close()
 
-
 def deactivate_admin(telegram_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -185,7 +180,6 @@ def deactivate_admin(telegram_id):
     cur.close()
     conn.close()
     return affected > 0
-
 
 def get_stats():
     conn = get_connection()

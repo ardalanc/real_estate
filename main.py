@@ -660,7 +660,6 @@ def ask_for_confirmation(cid, pid):
     )
     bot.send_message(cid, "آیا از درخواست بازدید برای این ملک اطمینان دارید؟ مشاور با شما تماس خواهد گرفت.", reply_markup=markup)
 
-# تابع کمکی برای چک کردن درخواست تکراری (در DLL.py اضافه کن)
 def is_visit_request_pending(user_id, pid):
     conn = get_connection()
     cur = conn.cursor()
@@ -807,6 +806,596 @@ def admin_reject_visit(message, vr_id):
         if reason != '—':
             user_text += f"\n💬 دلیل: {reason}"
         bot.send_message(row['user_tid'], user_text, parse_mode='Markdown')
+
+
+# ================ افزودن فایل جدید ================
+
+@bot.message_handler(func=lambda m: m.text == "افزودن فایل جدید" and is_admin(m.chat.id))
+def admin_add_property_start(message):
+    cid = message.chat.id
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("🏠 خرید", callback_data="newprop_type_buy"),
+        InlineKeyboardButton("🔑 اجاره", callback_data="newprop_type_rent"),
+    )
+    bot.send_message(cid, "نوع ملک را انتخاب کنید:", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("newprop_type_"))
+def admin_add_property_type(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+    prop_type = call.data.split("_")[2]  # buy | rent
+    bot.delete_message(cid, call.message.message_id)
+    msg = bot.send_message(cid, "📛 عنوان ملک را وارد کنید:")
+    bot.register_next_step_handler(msg, admin_add_property_title, {"type": prop_type})
+
+
+def admin_add_property_title(message, data):
+    cid = message.chat.id
+    title = message.text.strip()
+    if not title:
+        msg = bot.send_message(cid, "❌ عنوان نمی‌تواند خالی باشد. دوباره وارد کنید:")
+        bot.register_next_step_handler(msg, admin_add_property_title, data)
+        return
+    data['title'] = title
+    msg = bot.send_message(cid, "📝 توضیحات ملک را وارد کنید:")
+    bot.register_next_step_handler(msg, admin_add_property_description, data)
+
+
+def admin_add_property_description(message, data):
+    cid = message.chat.id
+    data['description'] = message.text.strip()
+    msg = bot.send_message(cid, "📐 متراژ ملک را وارد کنید (عدد):")
+    bot.register_next_step_handler(msg, admin_add_property_metraj, data)
+
+
+def admin_add_property_metraj(message, data):
+    cid = message.chat.id
+    val = normalize_number(message.text)
+    if val is None:
+        msg = bot.send_message(cid, "❌ لطفاً یک عدد معتبر برای متراژ وارد کنید:")
+        bot.register_next_step_handler(msg, admin_add_property_metraj, data)
+        return
+    data['metraj'] = val
+    msg = bot.send_message(cid, "🛏 تعداد اتاق‌ها را وارد کنید (عدد):")
+    bot.register_next_step_handler(msg, admin_add_property_rooms, data)
+
+
+def admin_add_property_rooms(message, data):
+    cid = message.chat.id
+    val = normalize_number(message.text)
+    if val is None or val < 0:
+        msg = bot.send_message(cid, "❌ تعداد اتاق نامعتبر است. دوباره وارد کنید:")
+        bot.register_next_step_handler(msg, admin_add_property_rooms, data)
+        return
+    data['rooms'] = val
+
+    if data['type'] == 'buy':
+        msg = bot.send_message(cid, "💰 قیمت ملک را به تومان وارد کنید:")
+        bot.register_next_step_handler(msg, admin_add_property_price, data)
+    else:
+        msg = bot.send_message(cid, "💰 مبلغ ودیعه (رهن) را به تومان وارد کنید:")
+        bot.register_next_step_handler(msg, admin_add_property_deposit, data)
+
+
+def admin_add_property_price(message, data):
+    cid = message.chat.id
+    val = normalize_number(message.text)
+    if val is None or val <= 0:
+        msg = bot.send_message(cid, "❌ قیمت نامعتبر است. دوباره وارد کنید:")
+        bot.register_next_step_handler(msg, admin_add_property_price, data)
+        return
+    data['price'] = val
+    data['deposit'] = None
+    data['rent'] = None
+    data['photos'] = []
+    _pending_property_data[cid] = data
+    msg = bot.send_message(
+        cid,
+        "🖼 عکس‌های ملک را یک‌به‌یک ارسال کنید.\n"
+        "بعد از ارسال همه عکس‌ها، دکمه «✅ اتمام» را بزنید.",
+        reply_markup=InlineKeyboardMarkup().add(
+            InlineKeyboardButton("✅ اتمام ارسال عکس‌ها", callback_data="newprop_photos_done")
+        )
+    )
+    bot.register_next_step_handler(msg, admin_add_property_photo, data)
+
+
+def admin_add_property_deposit(message, data):
+    cid = message.chat.id
+    val = normalize_number(message.text)
+    if val is None or val < 0:
+        msg = bot.send_message(cid, "❌ مبلغ نامعتبر است. دوباره وارد کنید:")
+        bot.register_next_step_handler(msg, admin_add_property_deposit, data)
+        return
+    data['deposit'] = val
+    msg = bot.send_message(cid, "💸 مبلغ اجاره ماهانه را به تومان وارد کنید:")
+    bot.register_next_step_handler(msg, admin_add_property_rent, data)
+
+
+def admin_add_property_rent(message, data):
+    cid = message.chat.id
+    val = normalize_number(message.text)
+    if val is None or val < 0:
+        msg = bot.send_message(cid, "❌ مبلغ نامعتبر است. دوباره وارد کنید:")
+        bot.register_next_step_handler(msg, admin_add_property_rent, data)
+        return
+    data['rent'] = val
+    data['price'] = None
+    data['photos'] = []
+    _pending_property_data[cid] = data
+    msg = bot.send_message(
+        cid,
+        "🖼 عکس‌های ملک را یک‌به‌یک ارسال کنید.\n"
+        "بعد از ارسال همه عکس‌ها، دکمه «✅ اتمام» را بزنید.",
+        reply_markup=InlineKeyboardMarkup().add(
+            InlineKeyboardButton("✅ اتمام ارسال عکس‌ها", callback_data="newprop_photos_done")
+        )
+    )
+    bot.register_next_step_handler(msg, admin_add_property_photo, data)
+
+
+# ذخیره‌سازی موقت داده‌های فایل جدید به ازای هر ادمین
+_pending_property_data = {}
+
+@bot.callback_query_handler(func=lambda c: c.data == "newprop_photos_done")
+def admin_add_property_photos_done(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+
+    # داده‌های این ادمین از next_step جاری قابل دسترس نیست؛ از dict موقت استفاده می‌کنیم
+    data = _pending_property_data.get(cid)
+    if not data:
+        bot.answer_callback_query(call.id, "⚠️ اطلاعاتی یافت نشد. دوباره شروع کنید.")
+        return
+
+    _save_property_and_notify(cid, call.message.message_id, data)
+
+
+def admin_add_property_photo(message, data):
+    """Override: ثبت عکس‌ها و ذخیره data در dict موقت"""
+    cid = message.chat.id
+    _pending_property_data[cid] = data  # همیشه آخرین وضعیت ذخیره شود
+
+    if message.content_type == 'photo':
+        file_id = message.photo[-1].file_id
+        data['photos'].append(file_id)
+        count = len(data['photos'])
+        msg = bot.send_message(
+            cid,
+            f"✅ عکس {count} دریافت شد. عکس بعدی را ارسال کنید یا «✅ اتمام» را بزنید.",
+            reply_markup=InlineKeyboardMarkup().add(
+                InlineKeyboardButton("✅ اتمام ارسال عکس‌ها", callback_data="newprop_photos_done")
+            )
+        )
+        bot.register_next_step_handler(msg, admin_add_property_photo, data)
+    else:
+        msg = bot.send_message(
+            cid,
+            "⚠️ لطفاً فقط عکس ارسال کنید یا دکمه «✅ اتمام» را بزنید.",
+            reply_markup=InlineKeyboardMarkup().add(
+                InlineKeyboardButton("✅ اتمام ارسال عکس‌ها", callback_data="newprop_photos_done")
+            )
+        )
+        bot.register_next_step_handler(msg, admin_add_property_photo, data)
+
+
+def _save_property_and_notify(cid, msg_id, data):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO properties (type, price, deposit, rent, metraj, rooms, title, description, status, admin_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'available',
+                (SELECT id FROM admins WHERE telegram_id = %s LIMIT 1))
+    """, (
+        data['type'], data.get('price'), data.get('deposit'), data.get('rent'),
+        data['metraj'], data['rooms'], data['title'], data['description'], cid
+    ))
+    conn.commit()
+    prop_id = cur.lastrowid
+
+    for file_id in data.get('photos', []):
+        cur.execute(
+            "INSERT INTO property_images (property_id, telegram_file_id) VALUES (%s, %s)",
+            (prop_id, file_id)
+        )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    _pending_property_data.pop(cid, None)
+
+    type_fa = "خرید" if data['type'] == 'buy' else "اجاره"
+    photos_count = len(data.get('photos', []))
+    bot.send_message(
+        cid,
+        f"✅ فایل جدید با موفقیت ثبت شد!\n\n"
+        f"🏠 عنوان: {data['title']}\n"
+        f"🔖 نوع: {type_fa}\n"
+        f"📐 متراژ: {data['metraj']} متر | 🛏 {data['rooms']} خواب\n"
+        f"🖼 تعداد عکس: {photos_count}",
+        reply_markup=admin_menu() if not is_superuser(cid) else superuser_menu()
+    )
+
+
+# ================ مدیریت فایل‌ها ================
+
+@bot.message_handler(func=lambda m: m.text == "مدیریت فایل ها" and is_admin(m.chat.id))
+def admin_manage_properties(message):
+    cid = message.chat.id
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("🏠 فایل‌های خرید", callback_data="mgprop_list_buy"),
+        InlineKeyboardButton("🔑 فایل‌های اجاره", callback_data="mgprop_list_rent"),
+    )
+    markup.add(InlineKeyboardButton("📋 همه فایل‌ها", callback_data="mgprop_list_all"))
+    bot.send_message(cid, "کدام دسته فایل‌ها را می‌خواهید مدیریت کنید؟", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_list_"))
+def admin_manage_list(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+    filter_type = call.data.split("_")[2]  # buy | rent | all
+    bot.delete_message(cid, call.message.message_id)
+
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    if filter_type == 'all':
+        cur.execute("SELECT id, title, type, status FROM properties ORDER BY created_at DESC LIMIT 40")
+    else:
+        cur.execute(
+            "SELECT id, title, type, status FROM properties WHERE type=%s ORDER BY created_at DESC LIMIT 40",
+            (filter_type,)
+        )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    if not rows:
+        bot.send_message(cid, "هیچ فایلی یافت نشد.")
+        return
+
+    markup = InlineKeyboardMarkup(row_width=1)
+    STATUS_ICON = {'available': '🟢', 'sold': '🔵', 'inactive': '🔴'}
+    TYPE_FA = {'buy': 'خرید', 'rent': 'اجاره'}
+    for r in rows:
+        icon = STATUS_ICON.get(r['status'], '⚪')
+        label = f"{icon} [{TYPE_FA.get(r['type'], r['type'])}] {r['title']}"
+        markup.add(InlineKeyboardButton(label, callback_data=f"mgprop_detail_{r['id']}"))
+    bot.send_message(cid, f"📂 فایل‌ها ({len(rows)} مورد):", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_detail_"))
+def admin_manage_detail(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+    prop_id = int(call.data.split("_")[2])
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT * FROM properties WHERE id = %s", (prop_id,))
+    p = cur.fetchone()
+    cur.execute("SELECT COUNT(*) AS cnt FROM property_images WHERE property_id = %s", (prop_id,))
+    img_cnt = cur.fetchone()['cnt']
+    cur.close()
+    conn.close()
+
+    if not p:
+        bot.answer_callback_query(call.id, "فایل یافت نشد.")
+        return
+
+    STATUS_FA = {'available': '🟢 موجود', 'sold': '🔵 فروخته شده', 'inactive': '🔴 غیرفعال'}
+    TYPE_FA = {'buy': 'خرید', 'rent': 'اجاره'}
+    type_fa = TYPE_FA.get(p['type'], p['type'])
+
+    if p['type'] == 'buy':
+        price_line = f"💰 قیمت: {p['price']:,} تومان" if p.get('price') else "💰 قیمت: —"
+    else:
+        price_line = (
+            f"💰 ودیعه: {p['deposit']:,} تومان\n"
+            f"💸 اجاره: {p['rent']:,} تومان"
+        )
+
+    text = (
+        f"🏠 *{p['title']}*\n"
+        f"🔖 نوع: {type_fa}\n"
+        f"{price_line}\n"
+        f"📐 متراژ: {p['metraj']} متر | 🛏 {p['rooms']} خواب\n"
+        f"📌 وضعیت: {STATUS_FA.get(p['status'], p['status'])}\n"
+        f"🖼 تعداد عکس: {img_cnt}\n\n"
+        f"📝 {p['description']}"
+    )
+
+    markup = InlineKeyboardMarkup(row_width=2)
+    # دکمه‌های تغییر وضعیت
+    if p['status'] != 'available':
+        markup.add(InlineKeyboardButton("🟢 موجود", callback_data=f"mgprop_status_{prop_id}_available"))
+    if p['status'] != 'sold':
+        markup.add(InlineKeyboardButton("🔵 فروخته شده", callback_data=f"mgprop_status_{prop_id}_sold"))
+    if p['status'] != 'inactive':
+        markup.add(InlineKeyboardButton("🔴 غیرفعال", callback_data=f"mgprop_status_{prop_id}_inactive"))
+    markup.add(InlineKeyboardButton("✏️ ویرایش عنوان", callback_data=f"mgprop_edit_title_{prop_id}"))
+    markup.add(InlineKeyboardButton("📝 ویرایش توضیحات", callback_data=f"mgprop_edit_desc_{prop_id}"))
+    markup.add(InlineKeyboardButton("💰 ویرایش قیمت", callback_data=f"mgprop_edit_price_{prop_id}"))
+    markup.add(InlineKeyboardButton("🖼 مدیریت عکس‌ها", callback_data=f"mgprop_photos_{prop_id}"))
+    markup.add(InlineKeyboardButton("🗑 حذف فایل", callback_data=f"mgprop_delete_{prop_id}"))
+
+    bot.send_message(cid, text, parse_mode='Markdown', reply_markup=markup)
+
+
+# -- تغییر وضعیت --
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_status_"))
+def admin_change_status(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+    parts = call.data.split("_")
+    prop_id = int(parts[3])
+    new_status = parts[4]
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE properties SET status=%s WHERE id=%s", (new_status, prop_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    STATUS_FA = {'available': 'موجود', 'sold': 'فروخته شده', 'inactive': 'غیرفعال'}
+    bot.answer_callback_query(call.id, f"✅ وضعیت به «{STATUS_FA.get(new_status)}» تغییر یافت.")
+    bot.delete_message(cid, call.message.message_id)
+
+
+# -- ویرایش عنوان --
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_edit_title_"))
+def admin_edit_title_start(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+    prop_id = int(call.data.split("_")[4])
+    msg = bot.send_message(cid, "✏️ عنوان جدید ملک را وارد کنید:")
+    bot.register_next_step_handler(msg, admin_edit_title_save, prop_id)
+
+
+def admin_edit_title_save(message, prop_id):
+    cid = message.chat.id
+    new_title = message.text.strip()
+    if not new_title:
+        msg = bot.send_message(cid, "❌ عنوان نمی‌تواند خالی باشد:")
+        bot.register_next_step_handler(msg, admin_edit_title_save, prop_id)
+        return
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE properties SET title=%s WHERE id=%s", (new_title, prop_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    bot.send_message(cid, f"✅ عنوان با موفقیت به «{new_title}» تغییر یافت.")
+
+
+# -- ویرایش توضیحات --
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_edit_desc_"))
+def admin_edit_desc_start(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+    prop_id = int(call.data.split("_")[4])
+    msg = bot.send_message(cid, "📝 توضیحات جدید را وارد کنید:")
+    bot.register_next_step_handler(msg, admin_edit_desc_save, prop_id)
+
+
+def admin_edit_desc_save(message, prop_id):
+    cid = message.chat.id
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE properties SET description=%s WHERE id=%s", (message.text.strip(), prop_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    bot.send_message(cid, "✅ توضیحات با موفقیت بروزرسانی شد.")
+
+
+# -- ویرایش قیمت --
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_edit_price_"))
+def admin_edit_price_start(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+    prop_id = int(call.data.split("_")[4])
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT type FROM properties WHERE id=%s", (prop_id,))
+    p = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not p:
+        bot.answer_callback_query(call.id, "فایل یافت نشد.")
+        return
+    if p['type'] == 'buy':
+        msg = bot.send_message(cid, "💰 قیمت جدید را به تومان وارد کنید:")
+        bot.register_next_step_handler(msg, admin_edit_price_save, prop_id, 'buy')
+    else:
+        msg = bot.send_message(cid, "💰 ودیعه (رهن) جدید را به تومان وارد کنید:")
+        bot.register_next_step_handler(msg, admin_edit_deposit_save, prop_id)
+
+
+def admin_edit_price_save(message, prop_id, prop_type):
+    cid = message.chat.id
+    val = normalize_number(message.text)
+    if val is None or val <= 0:
+        msg = bot.send_message(cid, "❌ عدد نامعتبر است. دوباره وارد کنید:")
+        bot.register_next_step_handler(msg, admin_edit_price_save, prop_id, prop_type)
+        return
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE properties SET price=%s WHERE id=%s", (val, prop_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    bot.send_message(cid, f"✅ قیمت با موفقیت به {val:,} تومان تغییر یافت.")
+
+
+def admin_edit_deposit_save(message, prop_id):
+    cid = message.chat.id
+    val = normalize_number(message.text)
+    if val is None or val < 0:
+        msg = bot.send_message(cid, "❌ عدد نامعتبر است. دوباره وارد کنید:")
+        bot.register_next_step_handler(msg, admin_edit_deposit_save, prop_id)
+        return
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE properties SET deposit=%s WHERE id=%s", (val, prop_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    msg = bot.send_message(cid, f"✅ ودیعه ثبت شد: {val:,} تومان\n💸 اجاره ماهانه جدید را وارد کنید:")
+    bot.register_next_step_handler(msg, admin_edit_rent_save, prop_id)
+
+
+def admin_edit_rent_save(message, prop_id):
+    cid = message.chat.id
+    val = normalize_number(message.text)
+    if val is None or val < 0:
+        msg = bot.send_message(cid, "❌ عدد نامعتبر است. دوباره وارد کنید:")
+        bot.register_next_step_handler(msg, admin_edit_rent_save, prop_id)
+        return
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE properties SET rent=%s WHERE id=%s", (val, prop_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    bot.send_message(cid, f"✅ اجاره ماهانه با موفقیت به {val:,} تومان تغییر یافت.")
+
+
+# -- مدیریت عکس‌ها --
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_photos_"))
+def admin_manage_photos(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+    prop_id = int(call.data.split("_")[3])
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT id, telegram_file_id FROM property_images WHERE property_id=%s ORDER BY id", (prop_id,))
+    imgs = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    if not imgs:
+        markup = InlineKeyboardMarkup().add(
+            InlineKeyboardButton("➕ افزودن عکس", callback_data=f"mgprop_addphoto_{prop_id}")
+        )
+        bot.send_message(cid, "🖼 این ملک عکسی ندارد.", reply_markup=markup)
+        return
+
+    bot.send_message(cid, f"🖼 *عکس‌های ملک* ({len(imgs)} تصویر):\nبرای حذف هر عکس روی دکمه زیر آن بزنید.", parse_mode='Markdown')
+    for img in imgs:
+        markup = InlineKeyboardMarkup().add(
+            InlineKeyboardButton("🗑 حذف این عکس", callback_data=f"mgprop_delphoto_{img['id']}_{prop_id}")
+        )
+        try:
+            bot.send_photo(cid, img['telegram_file_id'], reply_markup=markup)
+        except Exception:
+            bot.send_message(cid, f"⚠️ عکس با ID {img['id']} قابل نمایش نیست.", reply_markup=markup)
+
+    markup = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("➕ افزودن عکس جدید", callback_data=f"mgprop_addphoto_{prop_id}")
+    )
+    bot.send_message(cid, "برای افزودن عکس جدید:", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_delphoto_"))
+def admin_delete_photo(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+    parts = call.data.split("_")
+    img_id = int(parts[3])
+    prop_id = int(parts[4])
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM property_images WHERE id=%s", (img_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    bot.answer_callback_query(call.id, "🗑 عکس حذف شد.")
+    bot.delete_message(cid, call.message.message_id)
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_addphoto_"))
+def admin_add_photo_start(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+    prop_id = int(call.data.split("_")[3])
+    msg = bot.send_message(cid, "🖼 عکس جدید را ارسال کنید:")
+    bot.register_next_step_handler(msg, admin_add_photo_save, prop_id)
+
+
+def admin_add_photo_save(message, prop_id):
+    cid = message.chat.id
+    if message.content_type != 'photo':
+        msg = bot.send_message(cid, "❌ لطفاً فقط عکس ارسال کنید:")
+        bot.register_next_step_handler(msg, admin_add_photo_save, prop_id)
+        return
+    file_id = message.photo[-1].file_id
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO property_images (property_id, telegram_file_id) VALUES (%s, %s)", (prop_id, file_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    markup = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("➕ افزودن عکس دیگر", callback_data=f"mgprop_addphoto_{prop_id}")
+    )
+    bot.send_message(cid, "✅ عکس جدید با موفقیت اضافه شد.", reply_markup=markup)
+
+
+# -- حذف فایل --
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_delete_"))
+def admin_delete_property_confirm(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+    prop_id = int(call.data.split("_")[3])
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("⚠️ بله، حذف شود", callback_data=f"mgprop_confirmdelete_{prop_id}"),
+        InlineKeyboardButton("❌ انصراف", callback_data="mgprop_canceldelete"),
+    )
+    bot.send_message(cid, "⚠️ آیا مطمئن هستید؟ این عملیات برگشت‌ناپذیر است.", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_confirmdelete_"))
+def admin_delete_property_execute(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+    prop_id = int(call.data.split("_")[2])
+    conn = get_connection()
+    cur = conn.cursor()
+    # عکس‌ها به دلیل ON DELETE CASCADE خودکار حذف می‌شوند
+    cur.execute("DELETE FROM properties WHERE id=%s", (prop_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    bot.answer_callback_query(call.id, "🗑 فایل حذف شد.")
+    bot.edit_message_text("✅ فایل با موفقیت از سیستم حذف شد.", cid, call.message.message_id)
+
+
+@bot.callback_query_handler(func=lambda c: c.data == "mgprop_canceldelete")
+def admin_cancel_delete(call):
+    bot.answer_callback_query(call.id, "عملیات لغو شد.")
+    bot.delete_message(call.message.chat.id, call.message.message_id)
 
 
 # -- ارسال پیام به همه کاربران --

@@ -1,10 +1,6 @@
-# config.py
 import os
 
-
-
 ADMIN_IDS = [715337548]
-
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 

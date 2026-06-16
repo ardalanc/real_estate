@@ -682,7 +682,14 @@ def normalize_number(text):
     translation_table = str.maketrans(persian_numbers + arabic_numbers, english_numbers * 2)
     clean_text = text.translate(translation_table).replace(',', '').replace('،', '').strip()
     
-    return int(clean_text) if clean_text.isdigit() else None
+    if not clean_text.isdigit():
+        return None
+    val = int(clean_text)
+    # حداکثر مقدار مجاز: ۹۹۹ میلیارد تومان (در محدوده BIGINT MySQL)
+    MAX_VALUE = 999_000_000_000
+    if val > MAX_VALUE:
+        return None
+    return val
 
 # ================ ADMIN PANEL ================
 
@@ -873,7 +880,7 @@ def admin_add_property_price(message, data):
     cid = message.chat.id
     val = normalize_number(message.text)
     if val is None or val <= 0:
-        msg = bot.send_message(cid, "❌ قیمت نامعتبر است. دوباره وارد کنید:")
+        msg = bot.send_message(cid, "❌ قیمت نامعتبر است. لطفاً یک عدد معتبر (حداکثر ۹۹۹ میلیارد تومان) وارد کنید:")
         bot.register_next_step_handler(msg, admin_add_property_price, data)
         return
     data['price'] = val
@@ -895,7 +902,7 @@ def admin_add_property_deposit(message, data):
     cid = message.chat.id
     val = normalize_number(message.text)
     if val is None or val < 0:
-        msg = bot.send_message(cid, "❌ مبلغ نامعتبر است. دوباره وارد کنید:")
+        msg = bot.send_message(cid, "❌ مبلغ نامعتبر است. لطفاً یک عدد معتبر (حداکثر ۹۹۹ میلیارد تومان) وارد کنید:")
         bot.register_next_step_handler(msg, admin_add_property_deposit, data)
         return
     data['deposit'] = val
@@ -906,7 +913,7 @@ def admin_add_property_rent(message, data):
     cid = message.chat.id
     val = normalize_number(message.text)
     if val is None or val < 0:
-        msg = bot.send_message(cid, "❌ مبلغ نامعتبر است. دوباره وارد کنید:")
+        msg = bot.send_message(cid, "❌ مبلغ نامعتبر است. لطفاً یک عدد معتبر (حداکثر ۹۹۹ میلیارد تومان) وارد کنید:")
         bot.register_next_step_handler(msg, admin_add_property_rent, data)
         return
     data['rent'] = val
@@ -931,6 +938,9 @@ def admin_add_property_photos_done(call):
     if not is_admin(cid):
         return
 
+    # پاک کردن next_step_handler در انتظار تا پیام‌های بعدی (منو و ...) اشتباه پردازش نشوند
+    bot.clear_step_handler_by_chat_id(cid)
+
     # داده‌های این ادمین از next_step جاری قابل دسترس نیست؛ از dict موقت استفاده می‌کنیم
     data = _pending_property_data.get(cid)
     if not data:
@@ -942,6 +952,11 @@ def admin_add_property_photos_done(call):
 def admin_add_property_photo(message, data):
     """Override: ثبت عکس‌ها و ذخیره data در dict موقت"""
     cid = message.chat.id
+
+    # اگر کاربر قبلاً «اتمام» را زده و property ذخیره شده، این handler را نادیده بگیر
+    if cid not in _pending_property_data:
+        return
+
     _pending_property_data[cid] = data  # همیشه آخرین وضعیت ذخیره شود
 
     if message.content_type == 'photo':
@@ -969,12 +984,17 @@ def admin_add_property_photo(message, data):
 def _save_property_and_notify(cid, msg_id, data):
     conn = get_connection()
     cur = conn.cursor()
+
+    price   = data.get('price')   if data.get('price')   else None
+    deposit = data.get('deposit') if data.get('deposit') else None
+    rent    = data.get('rent')    if data.get('rent')    else None
+
     cur.execute("""
         INSERT INTO properties (type, price, deposit, rent, metraj, rooms, title, description, status, admin_id)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'available',
                 (SELECT id FROM admins WHERE telegram_id = %s LIMIT 1))
     """, (
-        data['type'], data.get('price'), data.get('deposit'), data.get('rent'),
+        data['type'], price, deposit, rent,
         data['metraj'], data['rooms'], data['title'], data['description'], cid
     ))
     conn.commit()

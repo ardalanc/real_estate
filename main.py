@@ -1,14 +1,34 @@
 import telebot
 import mysql.connector
 import re
+import logging
+import os
+from datetime import datetime
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from Texts import texts
 from config import BOT_TOKEN, DATABASE_CONFIG, DB_NAME, ADMIN_IDS
 from DLL import get_admin_level, get_all_admins, add_admin, deactivate_admin, get_stats
+import logging.handlers
+
+# ─── Logging Setup ────────────────────────────────────────────────
+os.makedirs("logs", exist_ok=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.handlers.RotatingFileHandler("logs/bot.log", maxBytes=5*1024*1024, backupCount=3, encoding="utf-8"),
+        logging.StreamHandler()         
+    ]
+)
+logger = logging.getLogger(__name__)
+# ──────────────────────────────────────────────────────────────────
 
 telebot.apihelper.API_URL="http://tapi.bale.ai/bot{0}/{1}"
 
 bot = telebot.TeleBot(BOT_TOKEN)
+logger.info("Bot instance created.")
 
 # ---------------- DATABASE ----------------
 
@@ -197,6 +217,8 @@ def rent_options_markup():
 def start_handler(message):
     cid = message.chat.id
     level = get_admin_level(cid)
+    username = message.from_user.username or "—"
+    logger.info(f"[START] user={cid} (@{username}) level={level or 'user'}")
 
     if level == 'superuser':
         bot.send_message(cid, "خوش امدید", reply_markup=superuser_menu())
@@ -234,8 +256,10 @@ def register_user(message):
             username,
             first_name,
         ))
-
         conn.commit()
+        logger.info(f"[REGISTER] new user registered: id={cid} username=@{username or '—'} name={first_name or '—'}")
+    else:
+        logger.debug(f"[REGISTER] existing user: id={cid}")
 
     cur.close()
     conn.close()
@@ -428,11 +452,13 @@ def process_profile_name_step(message):
 def handle_visit_request(call):
     cid = call.message.chat.id
     pid = call.data.split('_')[1] # Property ID
+    logger.info(f"[VISIT_REQUEST] user={cid} property_id={pid}")
     
     # چک کردن شماره تلفن در دیتابیس
     user = get_user_by_telegram_id(call.from_user.id) # تابعی که قبلا گفتی داری
     
     if not user or not user.get('phone'):
+        logger.info(f"[VISIT_REQUEST] user={cid} has no phone, requesting phone number")
         msg = bot.send_message(cid, "برای ثبت درخواست بازدید، لطفاً شماره موبایل خود را وارد کنید (مثال: 0912xxxxxxx):")
         bot.register_next_step_handler(msg, process_phone_step, pid)
     else:
@@ -443,6 +469,7 @@ def handle_visit_confirmation(call):
     cid = call.message.chat.id
     
     if call.data == "cancel_visit":
+        logger.info(f"[VISIT_CANCEL] user={cid} cancelled visit request")
         bot.answer_callback_query(call.id, "درخواست لغو شد.")
         bot.delete_message(cid, call.message.message_id)
         return
@@ -451,16 +478,19 @@ def handle_visit_confirmation(call):
     user_db_id = get_user_id_by_telegram_id(call.from_user.id)
 
     if not user_db_id:
+        logger.warning(f"[VISIT_CONFIRM] user={cid} not found in DB")
         bot.answer_callback_query(call.id, "خطا: کاربر یافت نشد.")
         return
 
     # چک کردن اینکه آیا درخواست پندینگ قبلی وجود داره یا نه
     if is_visit_request_pending(user_db_id, pid):
+        logger.info(f"[VISIT_CONFIRM] user={cid} already has pending request for property={pid}")
         bot.answer_callback_query(call.id, "شما قبلاً برای این ملک درخواست داده‌اید.")
         bot.send_message(cid, "⚠️ درخواست شما قبلاً ثبت شده و در حال بررسی است.")
     else:
         # ثبت در دیتابیس (property_id اول، user_id دوم)
-        create_visit_request(pid, user_db_id)
+        request_id = create_visit_request(pid, user_db_id)
+        logger.info(f"[VISIT_CONFIRM] new visit request created: id={request_id} user={cid} property={pid}")
         bot.answer_callback_query(call.id, "موفقیت‌آمیز!")
         bot.edit_message_text("✅ درخواست شما با موفقیت ثبت شد. مشاور به‌زودی با شما تماس می‌گیرد.", cid, call.message.message_id)
 
@@ -642,12 +672,14 @@ def process_phone_step(message, pid):
     phone = normalize_phone_number(message.text)
     
     if not phone:
+        logger.warning(f"[PHONE_STEP] user={cid} entered invalid phone: '{message.text}'")
         msg = bot.send_message(cid, "❌ شماره نامعتبر است. لطفاً شماره موبایل را دقیقاً با فرمت 09xxxxxxxxx وارد کنید:")
         bot.register_next_step_handler(msg, process_phone_step, pid)
         return
     
     # ذخیره شماره در دیتابیس
     update_user_phone(message.from_user.id, phone)
+    logger.info(f"[PHONE_STEP] user={cid} phone saved: {phone}")
     bot.send_message(cid, "✅ شماره شما با موفقیت ثبت شد.")
     ask_for_confirmation(cid, pid)
 
@@ -698,6 +730,7 @@ def normalize_number(text):
 @bot.message_handler(func=lambda m: m.text == "درخواست های بازدید" and is_admin(m.chat.id))
 def admin_visit_requests(message):
     cid = message.chat.id
+    logger.info(f"[ADMIN_VISITS] admin={cid} opened visit requests panel")
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
     cur.execute("""
@@ -713,6 +746,7 @@ def admin_visit_requests(message):
     rows = cur.fetchall()
     cur.close()
     conn.close()
+    logger.info(f"[ADMIN_VISITS] admin={cid} found {len(rows)} pending requests")
 
     if not rows:
         bot.send_message(cid, "📋 هیچ درخواست در انتظاری وجود ندارد.")
@@ -741,6 +775,7 @@ def admin_handle_visit(call):
     parts  = call.data.split("_")
     action = parts[1]
     vr_id  = int(parts[2])
+    logger.info(f"[ADMIN_VISIT_ACTION] admin={cid} action={action} visit_request_id={vr_id}")
 
     if action == "accept":
         msg = bot.send_message(cid, "📅 زمان بازدید را وارد کنید:")
@@ -772,6 +807,7 @@ def admin_set_visit_time(message, vr_id):
     conn.commit()
     cur.close()
     conn.close()
+    logger.info(f"[VISIT_ACCEPTED] admin={cid} visit_request_id={vr_id} scheduled='{scheduled}' user_tid={row['user_tid'] if row else '?'}")
     bot.send_message(cid, f"✅ درخواست تأیید شد. زمان: {scheduled}")
     if row:
         bot.send_message(
@@ -803,6 +839,7 @@ def admin_reject_visit(message, vr_id):
     conn.commit()
     cur.close()
     conn.close()
+    logger.info(f"[VISIT_REJECTED] admin={cid} visit_request_id={vr_id} reason='{reason}' user_tid={row['user_tid'] if row else '?'}")
     bot.send_message(cid, "❌ درخواست رد شد.")
     if row:
         user_text = f"❌ متأسفانه درخواست بازدید شما برای *{row['title']}* رد شد."
@@ -815,6 +852,7 @@ def admin_reject_visit(message, vr_id):
 @bot.message_handler(func=lambda m: m.text == "افزودن فایل جدید" and is_admin(m.chat.id))
 def admin_add_property_start(message):
     cid = message.chat.id
+    logger.info(f"[ADD_PROPERTY] admin={cid} started adding new property")
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
         InlineKeyboardButton("🏠 خرید", callback_data="newprop_type_buy"),
@@ -1009,10 +1047,12 @@ def _save_property_and_notify(cid, msg_id, data):
     cur.close()
     conn.close()
 
+    photos_count = len(data.get('photos', []))
+    logger.info(f"[PROPERTY_SAVED] admin={cid} property_id={prop_id} type={data['type']} title='{data['title']}' photos={photos_count}")
+
     _pending_property_data.pop(cid, None)
 
     type_fa = "خرید" if data['type'] == 'buy' else "اجاره"
-    photos_count = len(data.get('photos', []))
     bot.send_message(
         cid,
         f"✅ فایل جدید با موفقیت ثبت شد!\n\n"
@@ -1041,7 +1081,8 @@ def admin_manage_list(call):
     cid = call.message.chat.id
     if not is_admin(cid):
         return
-    filter_type = call.data.split("_")[2]  # buy | rent | all
+    # mgprop_list_buy → ['mgprop', 'list', 'buy']
+    filter_type = call.data.split("_", 2)[2]  # buy | rent | all
     bot.delete_message(cid, call.message.message_id)
 
     conn = get_connection()
@@ -1075,7 +1116,13 @@ def admin_manage_detail(call):
     cid = call.message.chat.id
     if not is_admin(cid):
         return
-    prop_id = int(call.data.split("_")[2])
+    # mgprop_detail_12 → split("_", 2) = ['mgprop', 'detail', '12']
+    parts = call.data.split("_", 2)
+    if len(parts) < 3 or not parts[2].isdigit():
+        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        return
+    prop_id = int(parts[2])
+
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
     cur.execute("SELECT * FROM properties WHERE id = %s", (prop_id,))
@@ -1090,16 +1137,15 @@ def admin_manage_detail(call):
         return
 
     STATUS_FA = {'available': '🟢 موجود', 'sold': '🔵 فروخته شده', 'inactive': '🔴 غیرفعال'}
-    TYPE_FA = {'buy': 'خرید', 'rent': 'اجاره'}
-    type_fa = TYPE_FA.get(p['type'], p['type'])
+    TYPE_FA   = {'buy': 'خرید', 'rent': 'اجاره'}
+    type_fa   = TYPE_FA.get(p['type'], p['type'])
 
     if p['type'] == 'buy':
         price_line = f"💰 قیمت: {p['price']:,} تومان" if p.get('price') else "💰 قیمت: —"
     else:
-        price_line = (
-            f"💰 ودیعه: {p['deposit']:,} تومان\n"
-            f"💸 اجاره: {p['rent']:,} تومان"
-        )
+        deposit = p.get('deposit') or 0
+        rent    = p.get('rent')    or 0
+        price_line = f"💰 ودیعه: {deposit:,} تومان\n💸 اجاره: {rent:,} تومان"
 
     text = (
         f"🏠 *{p['title']}*\n"
@@ -1112,20 +1158,51 @@ def admin_manage_detail(call):
     )
 
     markup = InlineKeyboardMarkup(row_width=2)
-    # دکمه‌های تغییر وضعیت
     if p['status'] != 'available':
-        markup.add(InlineKeyboardButton("🟢 موجود", callback_data=f"mgprop_status_{prop_id}_available"))
+        markup.add(InlineKeyboardButton("🟢 موجود",        callback_data=f"mgprop_status_{prop_id}_available"))
     if p['status'] != 'sold':
-        markup.add(InlineKeyboardButton("🔵 فروخته شده", callback_data=f"mgprop_status_{prop_id}_sold"))
+        markup.add(InlineKeyboardButton("🔵 فروخته شده",   callback_data=f"mgprop_status_{prop_id}_sold"))
     if p['status'] != 'inactive':
-        markup.add(InlineKeyboardButton("🔴 غیرفعال", callback_data=f"mgprop_status_{prop_id}_inactive"))
-    markup.add(InlineKeyboardButton("✏️ ویرایش عنوان", callback_data=f"mgprop_edit_title_{prop_id}"))
+        markup.add(InlineKeyboardButton("🔴 غیرفعال",      callback_data=f"mgprop_status_{prop_id}_inactive"))
+    markup.add(InlineKeyboardButton("✏️ ویرایش عنوان",    callback_data=f"mgprop_edit_title_{prop_id}"))
     markup.add(InlineKeyboardButton("📝 ویرایش توضیحات", callback_data=f"mgprop_edit_desc_{prop_id}"))
-    markup.add(InlineKeyboardButton("💰 ویرایش قیمت", callback_data=f"mgprop_edit_price_{prop_id}"))
-    markup.add(InlineKeyboardButton("🖼 مدیریت عکس‌ها", callback_data=f"mgprop_photos_{prop_id}"))
-    markup.add(InlineKeyboardButton("🗑 حذف فایل", callback_data=f"mgprop_delete_{prop_id}"))
+    markup.add(InlineKeyboardButton("💰 ویرایش قیمت",    callback_data=f"mgprop_edit_price_{prop_id}"))
+    markup.add(InlineKeyboardButton("🖼 مدیریت عکس‌ها",  callback_data=f"mgprop_photos_{prop_id}"))
+    markup.add(InlineKeyboardButton("🗑 حذف فایل",        callback_data=f"mgprop_delete_{prop_id}"))
 
     bot.send_message(cid, text, parse_mode='Markdown', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_edit_price_"))
+def admin_edit_price_start(call):
+    cid = call.message.chat.id
+    if not is_admin(cid):
+        return
+    # "mgprop_edit_price_12" → split("_", 3) → ['mgprop', 'edit', 'price', '12']
+    parts = call.data.split("_", 3)
+    if len(parts) < 4 or not parts[3].isdigit():
+        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        return
+    prop_id = int(parts[3])
+
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT type FROM properties WHERE id=%s", (prop_id,))
+    p = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not p:
+        bot.answer_callback_query(call.id, "فایل یافت نشد.")
+        return
+
+    if p['type'] == 'buy':
+        msg = bot.send_message(cid, "💰 قیمت جدید را به تومان وارد کنید:")
+        bot.register_next_step_handler(msg, admin_edit_price_save, prop_id, 'buy')
+    else:
+        msg = bot.send_message(cid, "💰 ودیعه (رهن) جدید را به تومان وارد کنید:")
+        bot.register_next_step_handler(msg, admin_edit_deposit_save, prop_id)
+
 
 # -- تغییر وضعیت --
 
@@ -1134,18 +1211,33 @@ def admin_change_status(call):
     cid = call.message.chat.id
     if not is_admin(cid):
         return
-    parts = call.data.split("_")
-    prop_id = int(parts[3])
-    new_status = parts[4]
+    # "mgprop_status_12_available" → split("_", 3) → ['mgprop', 'status', '12', 'available']
+    parts = call.data.split("_", 3)
+    if len(parts) < 4:
+        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        return
+    if not parts[2].isdigit():
+        bot.answer_callback_query(call.id, "⚠️ شناسه ملک نامعتبر.")
+        return
+    prop_id    = int(parts[2])
+    new_status = parts[3]
+    VALID_STATUSES = ('available', 'sold', 'inactive')
+    if new_status not in VALID_STATUSES:
+        bot.answer_callback_query(call.id, "⚠️ وضعیت نامعتبر.")
+        return
+
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("UPDATE properties SET status=%s WHERE id=%s", (new_status, prop_id))
     conn.commit()
     cur.close()
     conn.close()
+
     STATUS_FA = {'available': 'موجود', 'sold': 'فروخته شده', 'inactive': 'غیرفعال'}
+    logger.info(f"[CHANGE_STATUS] prop_id={prop_id} new_status={new_status}")
     bot.answer_callback_query(call.id, f"✅ وضعیت به «{STATUS_FA.get(new_status)}» تغییر یافت.")
     bot.delete_message(cid, call.message.message_id)
+
 
 # -- ویرایش عنوان --
 
@@ -1154,7 +1246,12 @@ def admin_edit_title_start(call):
     cid = call.message.chat.id
     if not is_admin(cid):
         return
-    prop_id = int(call.data.split("_")[4])
+    # "mgprop_edit_title_12" → split("_", 3) → ['mgprop', 'edit', 'title', '12']
+    parts = call.data.split("_", 3)
+    if len(parts) < 4 or not parts[3].isdigit():
+        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        return
+    prop_id = int(parts[3])
     msg = bot.send_message(cid, "✏️ عنوان جدید ملک را وارد کنید:")
     bot.register_next_step_handler(msg, admin_edit_title_save, prop_id)
 
@@ -1171,6 +1268,7 @@ def admin_edit_title_save(message, prop_id):
     conn.commit()
     cur.close()
     conn.close()
+    logger.info(f"[EDIT_TITLE] prop_id={prop_id} new_title='{new_title}'")
     bot.send_message(cid, f"✅ عنوان با موفقیت به «{new_title}» تغییر یافت.")
 
 # -- ویرایش توضیحات --
@@ -1180,43 +1278,52 @@ def admin_edit_desc_start(call):
     cid = call.message.chat.id
     if not is_admin(cid):
         return
-    prop_id = int(call.data.split("_")[4])
+    # "mgprop_edit_desc_12" → split("_", 3) → ['mgprop', 'edit', 'desc', '12']
+    parts = call.data.split("_", 3)
+    if len(parts) < 4 or not parts[3].isdigit():
+        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        return
+    prop_id = int(parts[3])
     msg = bot.send_message(cid, "📝 توضیحات جدید را وارد کنید:")
     bot.register_next_step_handler(msg, admin_edit_desc_save, prop_id)
 
+
+
 def admin_edit_desc_save(message, prop_id):
     cid = message.chat.id
+    new_desc = message.text.strip()
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("UPDATE properties SET description=%s WHERE id=%s", (message.text.strip(), prop_id))
+    cur.execute("UPDATE properties SET description=%s WHERE id=%s", (new_desc, prop_id))
     conn.commit()
     cur.close()
     conn.close()
+    logger.info(f"[EDIT_DESC] prop_id={prop_id}")
     bot.send_message(cid, "✅ توضیحات با موفقیت بروزرسانی شد.")
 
 # -- ویرایش قیمت --
 
-@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_edit_price_"))
-def admin_edit_price_start(call):
+@bot.callback_query_handler(func=lambda call: call.data.startswith("visit_"))
+def handle_visit_request(call):
     cid = call.message.chat.id
-    if not is_admin(cid):
-        return
-    prop_id = int(call.data.split("_")[4])
-    conn = get_connection()
-    cur = conn.cursor(dictionary=True)
-    cur.execute("SELECT type FROM properties WHERE id=%s", (prop_id,))
-    p = cur.fetchone()
-    cur.close()
-    conn.close()
-    if not p:
-        bot.answer_callback_query(call.id, "فایل یافت نشد.")
-        return
-    if p['type'] == 'buy':
-        msg = bot.send_message(cid, "💰 قیمت جدید را به تومان وارد کنید:")
-        bot.register_next_step_handler(msg, admin_edit_price_save, prop_id, 'buy')
+    # ✅ FIX: pid را به int تبدیل کن تا در confirm_visit_{pid} عدد درست ساخته شود
+    pid = int(call.data.split('_')[1])
+    logger.info(f"[VISIT_REQUEST] user={cid} property_id={pid}")
+
+    user = get_user_by_telegram_id(call.from_user.id)
+
+    if not user or not user.get('phone'):
+        logger.info(f"[VISIT_REQUEST] user={cid} has no phone, requesting phone number")
+        msg = bot.send_message(cid, "برای ثبت درخواست بازدید، لطفاً شماره موبایل خود را وارد کنید (مثال: 0912xxxxxxx):")
+        bot.register_next_step_handler(msg, process_phone_step, pid)
     else:
-        msg = bot.send_message(cid, "💰 ودیعه (رهن) جدید را به تومان وارد کنید:")
-        bot.register_next_step_handler(msg, admin_edit_deposit_save, prop_id)
+        ask_for_confirmation(cid, pid)
+
+
+
+
+
+
 
 def admin_edit_price_save(message, prop_id, prop_type):
     cid = message.chat.id
@@ -1231,8 +1338,8 @@ def admin_edit_price_save(message, prop_id, prop_type):
     conn.commit()
     cur.close()
     conn.close()
+    logger.info(f"[EDIT_PRICE] prop_id={prop_id} new_price={val}")
     bot.send_message(cid, f"✅ قیمت با موفقیت به {val:,} تومان تغییر یافت.")
-
 def admin_edit_deposit_save(message, prop_id):
     cid = message.chat.id
     val = normalize_number(message.text)
@@ -1262,7 +1369,9 @@ def admin_edit_rent_save(message, prop_id):
     conn.commit()
     cur.close()
     conn.close()
+    logger.info(f"[EDIT_RENT] prop_id={prop_id} new_rent={val}")
     bot.send_message(cid, f"✅ اجاره ماهانه با موفقیت به {val:,} تومان تغییر یافت.")
+
 
 # -- مدیریت عکس‌ها --
 
@@ -1271,7 +1380,12 @@ def admin_manage_photos(call):
     cid = call.message.chat.id
     if not is_admin(cid):
         return
-    prop_id = int(call.data.split("_")[3])
+    parts = call.data.split("_", 2)
+    if len(parts) < 3 or not parts[2].isdigit():
+        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        return
+    prop_id = int(parts[2])
+
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
     cur.execute("SELECT id, telegram_file_id FROM property_images WHERE property_id=%s ORDER BY id", (prop_id,))
@@ -1301,31 +1415,52 @@ def admin_manage_photos(call):
     )
     bot.send_message(cid, "برای افزودن عکس جدید:", reply_markup=markup)
 
+
+
+
+
+
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_delphoto_"))
 def admin_delete_photo(call):
     cid = call.message.chat.id
     if not is_admin(cid):
         return
-    parts = call.data.split("_")
-    img_id = int(parts[3])
-    prop_id = int(parts[4])
+    # "mgprop_delphoto_5_12" → split("_", 3) → ['mgprop', 'delphoto', '5', '12']
+    parts = call.data.split("_", 3)
+    if len(parts) < 4 or not parts[2].isdigit() or not parts[3].isdigit():
+        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        return
+    img_id  = int(parts[2])
+    prop_id = int(parts[3])
+
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM property_images WHERE id=%s", (img_id,))
     conn.commit()
     cur.close()
     conn.close()
+    logger.info(f"[DELETE_PHOTO] img_id={img_id} prop_id={prop_id} by admin={cid}")
     bot.answer_callback_query(call.id, "🗑 عکس حذف شد.")
     bot.delete_message(cid, call.message.message_id)
+
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_addphoto_"))
 def admin_add_photo_start(call):
     cid = call.message.chat.id
     if not is_admin(cid):
         return
-    prop_id = int(call.data.split("_")[3])
+    parts = call.data.split("_", 2)
+    if len(parts) < 3 or not parts[2].isdigit():
+        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        return
+    prop_id = int(parts[2])
     msg = bot.send_message(cid, "🖼 عکس جدید را ارسال کنید:")
     bot.register_next_step_handler(msg, admin_add_photo_save, prop_id)
+
+
+
+
+
 
 def admin_add_photo_save(message, prop_id):
     cid = message.chat.id
@@ -1336,10 +1471,14 @@ def admin_add_photo_save(message, prop_id):
     file_id = message.photo[-1].file_id
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("INSERT INTO property_images (property_id, telegram_file_id) VALUES (%s, %s)", (prop_id, file_id))
+    cur.execute(
+        "INSERT INTO property_images (property_id, telegram_file_id) VALUES (%s, %s)",
+        (prop_id, file_id)
+    )
     conn.commit()
     cur.close()
     conn.close()
+    logger.info(f"[ADD_PHOTO] prop_id={prop_id} by admin={cid}")
     markup = InlineKeyboardMarkup().add(
         InlineKeyboardButton("➕ افزودن عکس دیگر", callback_data=f"mgprop_addphoto_{prop_id}")
     )
@@ -1347,39 +1486,53 @@ def admin_add_photo_save(message, prop_id):
 
 # -- حذف فایل --
 
-@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_delete_"))
+@bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_delete_") and not c.data.startswith("mgprop_confirmdelete_"))
 def admin_delete_property_confirm(call):
     cid = call.message.chat.id
     if not is_admin(cid):
         return
-    prop_id = int(call.data.split("_")[3])
+    parts = call.data.split("_", 2)
+    if len(parts) < 3 or not parts[2].isdigit():
+        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        return
+    prop_id = int(parts[2])
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
         InlineKeyboardButton("⚠️ بله، حذف شود", callback_data=f"mgprop_confirmdelete_{prop_id}"),
-        InlineKeyboardButton("❌ انصراف", callback_data="mgprop_canceldelete"),
+        InlineKeyboardButton("❌ انصراف",         callback_data="mgprop_canceldelete"),
     )
     bot.send_message(cid, "⚠️ آیا مطمئن هستید؟ این عملیات برگشت‌ناپذیر است.", reply_markup=markup)
+
+
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_confirmdelete_"))
 def admin_delete_property_execute(call):
     cid = call.message.chat.id
     if not is_admin(cid):
         return
-    prop_id = int(call.data.split("_")[2])
+    parts = call.data.split("_", 2)
+    if len(parts) < 3 or not parts[2].isdigit():
+        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        return
+    prop_id = int(parts[2])
     conn = get_connection()
     cur = conn.cursor()
-    # عکس‌ها به دلیل ON DELETE CASCADE خودکار حذف می‌شوند
     cur.execute("DELETE FROM properties WHERE id=%s", (prop_id,))
     conn.commit()
     cur.close()
     conn.close()
+    logger.info(f"[DELETE_PROPERTY] prop_id={prop_id} by admin={cid}")
     bot.answer_callback_query(call.id, "🗑 فایل حذف شد.")
     bot.edit_message_text("✅ فایل با موفقیت از سیستم حذف شد.", cid, call.message.message_id)
+
+
+
 
 @bot.callback_query_handler(func=lambda c: c.data == "mgprop_canceldelete")
 def admin_cancel_delete(call):
     bot.answer_callback_query(call.id, "عملیات لغو شد.")
     bot.delete_message(call.message.chat.id, call.message.message_id)
+
 
 # -- ارسال پیام به همه کاربران --
 
@@ -1405,6 +1558,7 @@ def admin_broadcast_send(message):
             sent += 1
         except Exception:
             failed += 1
+    logger.info(f"[BROADCAST] admin={cid} total={len(users)} sent={sent} failed={failed}")
     bot.send_message(cid, f"✅ ارسال تمام شد.\n📤 موفق: {sent} | ❌ ناموفق: {failed}")
 
 # ================ SUPERUSER PANEL ================
@@ -1482,6 +1636,7 @@ def superuser_toggle_block(call):
     cur.close()
     conn.close()
     label = "🚫 بلاک شد" if new_val else "🔓 رفع بلاک شد"
+    logger.info(f"[USER_BLOCK] superuser={cid} action={action} user_db_id={user_id}")
     bot.answer_callback_query(call.id, label)
     bot.delete_message(cid, call.message.message_id)
 
@@ -1541,6 +1696,7 @@ def superuser_confirm_add_admin(call):
     level = parts[3]
     add_admin(tid, name, is_superuser_flag=(level == "super"))
     label = "👑 سوپر یوزر" if level == "super" else "🔧 ادمین معمولی"
+    logger.info(f"[ADMIN_ADDED] superuser={cid} new_admin_tid={tid} name='{name}' level={level}")
     bot.answer_callback_query(call.id, "✅ ادمین اضافه شد.")
     bot.edit_message_text(f"✅ *{name}* به عنوان {label} اضافه شد.", cid, call.message.message_id, parse_mode='Markdown')
 
@@ -1575,6 +1731,7 @@ def superuser_deactivate_admin(call):
         return
     tid = int(call.data.split("_")[1])
     deactivate_admin(tid)
+    logger.info(f"[ADMIN_DEACTIVATED] superuser={cid} deactivated_admin_tid={tid}")
     bot.answer_callback_query(call.id, "🔴 ادمین غیرفعال شد.")
     bot.delete_message(cid, call.message.message_id)
 
@@ -1611,9 +1768,11 @@ def info_listener(messages):
         print(f"👤 User: {username} ({user_id})")
         print(f"💬 Content: {text}")
         print(f"----------------------\n")
+        logger.debug(f"[MSG] user={user_id} (@{username}) content={text[:80]}")
 bot.set_update_listener(info_listener)
 
 # ---------------- RUN BOT ----------------
 
 print("robot is runing")
+logger.info("Bot polling started.")
 bot.infinity_polling()

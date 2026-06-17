@@ -209,4 +209,6 @@ if __name__ == "__main__":
     create_table_admin(DB_NAME)
     create_table_properties(DB_NAME)
     create_table_property_images(DB_NAME)
-    create_table_visit_requests(DB_NAME)
+    create_table_visit_requests(DB_NAME)    
+
+

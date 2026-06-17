@@ -1,0 +1,6 @@
+2026-06-17 16:04:26 | INFO | Bot instance created.
+2026-06-17 16:04:26 | INFO | Bot polling started.
+2026-06-17 16:04:37 | INFO | package: mysql.connector.plugins
+2026-06-17 16:04:37 | INFO | plugin_name: caching_sha2_password
+2026-06-17 16:04:37 | INFO | AUTHENTICATION_PLUGIN_CLASS: MySQLCachingSHA2PasswordAuthPlugin
+2026-06-17 16:04:49 | INFO | [DELETE_PROPERTY] prop_id=2 by admin=715337548

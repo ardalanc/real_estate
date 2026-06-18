@@ -182,6 +182,10 @@ def more_menu_markup():
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
         InlineKeyboardButton("👤 پروفایل من", callback_data="profile_show"),
+        InlineKeyboardButton("📞 ارتباط با ما", callback_data="contact_us"),
+        InlineKeyboardButton("📖 راهنما", callback_data="guide"),
+        InlineKeyboardButton("🛟 پشتیبانی", callback_data="support"),
+        InlineKeyboardButton("ℹ️ درباره ما", callback_data="about_us"),
     )
     return markup
 
@@ -1755,6 +1759,174 @@ def superuser_stats(message):
         f"  • معاملات موفق: {s['successful_deals']}"
     )
     bot.send_message(cid, text, parse_mode='Markdown')
+
+# ================ ارتباط با ما / راهنما / پشتیبانی / درباره ما ================
+
+# -- تابع کمکی: پیدا کردن سوپریوزر --
+
+def get_superuser_telegram_ids():
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT telegram_id FROM admins WHERE is_superuser = TRUE AND is_active = TRUE")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [r['telegram_id'] for r in rows]
+
+# -- callback handler برای چهار بخش --
+
+@bot.callback_query_handler(func=lambda call: call.data in ("contact_us", "guide", "support", "about_us"))
+def more_sections_callback(call):
+    cid = call.message.chat.id
+    telegram_id = call.from_user.id
+
+    # ─── درباره ما ───
+    if call.data == "about_us":
+        text = (
+            "🏢 *درباره ما*\n\n"
+            "ما یک مجموعه تخصصی در حوزه خرید، فروش و اجاره ملک هستیم.\n\n"
+            "با سال‌ها تجربه در بازار مسکن، تیم مشاوران حرفه‌ای ما آماده‌اند تا بهترین "
+            "گزینه‌ها را متناسب با نیاز و بودجه شما پیدا کنند.\n\n"
+            "🎯 هدف ما: ارائه خدمات شفاف، سریع و قابل اعتماد در معاملات ملکی\n\n"
+            "📍 ما باور داریم که هر نفر لایق خانه رویایی‌اش است."
+        )
+        bot.answer_callback_query(call.id)
+        bot.send_message(cid, text, parse_mode='Markdown')
+        return
+
+    # ─── راهنما ───
+    if call.data == "guide":
+        text = (
+            "📖 *راهنمای استفاده از ربات*\n\n"
+            "🏠 *خرید:*\n"
+            "با زدن دکمه «خرید» می‌توانید فایل‌های فروش را مشاهده و بر اساس بودجه فیلتر کنید.\n\n"
+            "🔑 *اجاره:*\n"
+            "با زدن دکمه «اجاره» می‌توانید ملک‌های اجاره‌ای را بر اساس ودیعه، اجاره ماهانه یا هر دو جستجو کنید.\n\n"
+            "📅 *درخواست بازدید:*\n"
+            "زیر هر ملک دکمه «درخواست بازدید» وجود دارد. پس از ثبت درخواست، مشاور ما با شما تماس می‌گیرد.\n\n"
+            "👤 *پروفایل:*\n"
+            "در بخش «بیشتر ← پروفایل من» می‌توانید اطلاعات خود را ویرایش کنید و وضعیت درخواست‌هایتان را پیگیری کنید.\n\n"
+            "📞 *ارتباط با ما:*\n"
+            "در صورت نیاز به راهنمایی بیشتر، از بخش «ارتباط با ما» درخواست دهید تا مشاور با شما تماس بگیرد."
+        )
+        bot.answer_callback_query(call.id)
+        bot.send_message(cid, text, parse_mode='Markdown')
+        return
+
+    # ─── پشتیبانی ───
+    if call.data == "support":
+        text = (
+            "🛟 *پشتیبانی*\n\n"
+            "تیم پشتیبانی ما همه روزه آماده پاسخگویی به سوالات شما هستند.\n\n"
+            "⏰ *ساعات پاسخگویی:*\n"
+            "شنبه تا چهارشنبه: ۹ صبح تا ۶ عصر\n"
+            "پنج‌شنبه: ۹ صبح تا ۱ بعدازظهر\n\n"
+            "📌 *موارد قابل پیگیری:*\n"
+            "• وضعیت درخواست بازدید\n"
+            "• مشاوره در انتخاب ملک\n"
+            "• سوالات مربوط به قراردادها\n"
+            "• مشکلات فنی ربات\n\n"
+            "برای ارتباط مستقیم با مشاور، از گزینه «📞 ارتباط با ما» استفاده کنید."
+        )
+        bot.answer_callback_query(call.id)
+        bot.send_message(cid, text, parse_mode='Markdown')
+        return
+
+    # ─── ارتباط با ما ───
+    if call.data == "contact_us":
+        bot.answer_callback_query(call.id)
+        user = get_user_by_telegram_id(telegram_id)
+
+        if user and user.get('phone'):
+            # کاربر شماره دارد: تاییدیه نمایش داده می‌شود
+            markup = InlineKeyboardMarkup(row_width=2)
+            markup.add(
+                InlineKeyboardButton("✅ بله، تماس بگیرید", callback_data="contact_confirm"),
+                InlineKeyboardButton("❌ انصراف", callback_data="contact_cancel"),
+            )
+            bot.send_message(
+                cid,
+                "📞 *درخواست تماس*\n\n"
+                "یکی از مشاوران ما در اسرع وقت با شما تماس خواهد گرفت و راهنمایی لازم را ارائه می‌دهد.\n\n"
+                "آیا می‌خواهید درخواست تماس ثبت شود؟",
+                parse_mode='Markdown',
+                reply_markup=markup
+            )
+        else:
+            # کاربر شماره ندارد: ابتدا شماره گرفته می‌شود
+            msg = bot.send_message(
+                cid,
+                "📱 برای ارتباط با مشاور، لطفاً شماره موبایل خود را وارد کنید (مثال: 09xxxxxxxxx):"
+            )
+            bot.register_next_step_handler(msg, contact_us_phone_step)
+
+def contact_us_phone_step(message):
+    cid = message.chat.id
+    phone = normalize_phone_number(message.text)
+    if not phone:
+        msg = bot.send_message(cid, "❌ شماره نامعتبر است. لطفاً با فرمت 09xxxxxxxxx وارد کنید:")
+        bot.register_next_step_handler(msg, contact_us_phone_step)
+        return
+    update_user_phone(message.from_user.id, phone)
+    logger.info(f"[CONTACT_US] user={cid} phone saved for contact: {phone}")
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("✅ بله، تماس بگیرید", callback_data="contact_confirm"),
+        InlineKeyboardButton("❌ انصراف", callback_data="contact_cancel"),
+    )
+    bot.send_message(
+        cid,
+        "✅ شماره شما ثبت شد.\n\n"
+        "📞 *درخواست تماس*\n\n"
+        "یکی از مشاوران ما در اسرع وقت با شما تماس خواهد گرفت و راهنمایی لازم را ارائه می‌دهد.\n\n"
+        "آیا می‌خواهید درخواست تماس ثبت شود؟",
+        parse_mode='Markdown',
+        reply_markup=markup
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data in ("contact_confirm", "contact_cancel"))
+def contact_us_confirm_callback(call):
+    cid = call.message.chat.id
+    telegram_id = call.from_user.id
+
+    if call.data == "contact_cancel":
+        bot.answer_callback_query(call.id, "درخواست لغو شد.")
+        bot.delete_message(cid, call.message.message_id)
+        return
+
+    # تأیید شد: اطلاع‌رسانی به کاربر
+    bot.answer_callback_query(call.id, "✅ درخواست ثبت شد.")
+    bot.edit_message_text(
+        "✅ *درخواست شما ثبت شد!*\n\n"
+        "یکی از مشاوران ما به‌زودی با شما تماس خواهد گرفت.\n"
+        "ممنون از اعتماد شما 🙏",
+        cid,
+        call.message.message_id,
+        parse_mode='Markdown'
+    )
+
+    # ارسال پیام به سوپریوزرها
+    user = get_user_by_telegram_id(telegram_id)
+    name    = (user.get('name') or '—') if user else '—'
+    phone   = (user.get('phone') or 'ثبت نشده') if user else 'ثبت نشده'
+    username = f"@{user['username']}" if user and user.get('username') else '—'
+
+    notify_text = (
+        "📞 *درخواست تماس جدید*\n\n"
+        f"👤 نام: {name}\n"
+        f"🔗 یوزرنیم: {username}\n"
+        f"📱 شماره: {phone}\n"
+        f"🆔 آیدی: `{telegram_id}`\n\n"
+        "این کاربر درخواست کمک دارد. لطفاً با وی تماس بگیرید."
+    )
+
+    superuser_ids = get_superuser_telegram_ids()
+    logger.info(f"[CONTACT_US] user={cid} phone={phone} notifying {len(superuser_ids)} superuser(s)")
+    for su_id in superuser_ids:
+        try:
+            bot.send_message(su_id, notify_text, parse_mode='Markdown')
+        except Exception as e:
+            logger.warning(f"[CONTACT_US] failed to notify superuser={su_id}: {e}")
 
 # ---------------- LISTENER ----------------
 

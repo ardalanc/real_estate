@@ -142,76 +142,76 @@ def get_user_by_telegram_id(telegram_id):
 def main_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(
-        KeyboardButton("خرید"),
-        KeyboardButton("اجاره")
+        KeyboardButton(texts["btn_buy"]),
+        KeyboardButton(texts["btn_rent"])
     )
-    markup.add(KeyboardButton("بیشتر"))
+    markup.add(KeyboardButton(texts["btn_more"]))
     return markup
 
 def admin_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(
-        KeyboardButton("افزودن فایل جدید"),
-        KeyboardButton("مدیریت فایل ها")
+        KeyboardButton(texts["btn_add_property"]),
+        KeyboardButton(texts["btn_manage_properties"])
     )
     markup.add(
-        KeyboardButton("درخواست های بازدید"),
-        KeyboardButton("ارسال پیام به همه کاربران")           
+        KeyboardButton(texts["btn_visit_requests"]),
+        KeyboardButton(texts["btn_broadcast"])           
     )
     return markup
 
 def superuser_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(
-        KeyboardButton("افزودن فایل جدید"),
-        KeyboardButton("مدیریت فایل ها")
+        KeyboardButton(texts["btn_add_property"]),
+        KeyboardButton(texts["btn_manage_properties"])
     )
     markup.add(
-        KeyboardButton("درخواست های بازدید"),
-        KeyboardButton("ارسال پیام به همه کاربران")
+        KeyboardButton(texts["btn_visit_requests"]),
+        KeyboardButton(texts["btn_broadcast"])
     )
     # ردیف اختصاصی سوپر یوزر
     markup.add(
-        KeyboardButton("مدیریت کاربران"),
-        KeyboardButton("مدیریت ادمین ها")
+        KeyboardButton(texts["btn_manage_users"]),
+        KeyboardButton(texts["btn_manage_admins"])
     )
-    markup.add(KeyboardButton("آمار و گزارش"))
+    markup.add(KeyboardButton(texts["btn_stats"]))
     return markup
 
 def more_menu_markup():
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
-        InlineKeyboardButton("👤 پروفایل من", callback_data="profile_show"),
-        InlineKeyboardButton("📞 ارتباط با ما", callback_data="contact_us"),
-        InlineKeyboardButton("📖 راهنما", callback_data="guide"),
-        InlineKeyboardButton("🛟 پشتیبانی", callback_data="support"),
-        InlineKeyboardButton("ℹ️ درباره ما", callback_data="about_us"),
+        InlineKeyboardButton(texts["btn_profile"],    callback_data="profile_show"),
+        InlineKeyboardButton(texts["btn_contact_us"], callback_data="contact_us"),
+        InlineKeyboardButton(texts["btn_guide"],      callback_data="guide"),
+        InlineKeyboardButton(texts["btn_support"],    callback_data="support"),
+        InlineKeyboardButton(texts["btn_about_us"],   callback_data="about_us"),
     )
     return markup
 
 def profile_markup():
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
-        InlineKeyboardButton("✏️ ویرایش شماره تلفن", callback_data="profile_edit_phone"),
-        InlineKeyboardButton("📝 تغییر نام", callback_data="profile_edit_name"),
-        InlineKeyboardButton("📋 درخواست‌های بازدید من", callback_data="profile_my_visits"),
+        InlineKeyboardButton(texts["btn_edit_phone"], callback_data="profile_edit_phone"),
+        InlineKeyboardButton(texts["btn_edit_name"],  callback_data="profile_edit_name"),
+        InlineKeyboardButton(texts["btn_my_visits"],  callback_data="profile_my_visits"),
     )
     return markup
 
 def buy_options_markup():
     markup = InlineKeyboardMarkup(row_width=1)
-    btn_all = InlineKeyboardButton("نمایش تمام فایل‌ها 🏠", callback_data="buy_show_all")
-    btn_budget = InlineKeyboardButton("جست‌وجو بر اساس بودجه 💰", callback_data="buy_by_budget")
+    btn_all    = InlineKeyboardButton(texts["btn_buy_all"],       callback_data="buy_show_all")
+    btn_budget = InlineKeyboardButton(texts["btn_buy_by_budget"], callback_data="buy_by_budget")
     markup.add(btn_all, btn_budget)
     return markup
 
 def rent_options_markup():
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
-        InlineKeyboardButton("🏘 نمایش تمام فایل‌های اجاره", callback_data="rent_all"),
-        InlineKeyboardButton("💰 جست‌وجو بر اساس ودیعه", callback_data="rent_by_deposit"),
-        InlineKeyboardButton("💸 جست‌وجو بر اساس اجاره ماهانه", callback_data="rent_by_monthly"),
-        InlineKeyboardButton("🎯 جست‌وجو ترکیبی", callback_data="rent_by_combo")
+        InlineKeyboardButton(texts["btn_rent_all"],        callback_data="rent_all"),
+        InlineKeyboardButton(texts["btn_rent_by_deposit"], callback_data="rent_by_deposit"),
+        InlineKeyboardButton(texts["btn_rent_by_monthly"], callback_data="rent_by_monthly"),
+        InlineKeyboardButton(texts["btn_rent_by_combo"],   callback_data="rent_by_combo")
     )
     return markup
 
@@ -225,15 +225,15 @@ def start_handler(message):
     logger.info(f"[START] user={cid} (@{username}) level={level or 'user'}")
 
     if level == 'superuser':
-        bot.send_message(cid, "خوش امدید", reply_markup=superuser_menu())
+        bot.send_message(cid, texts["welcome"], reply_markup=superuser_menu())
         return
 
     if level == 'admin':
-        bot.send_message(cid, "خوش امدید", reply_markup=admin_menu())
+        bot.send_message(cid, texts["welcome"], reply_markup=admin_menu())
         return
 
     register_user(message)
-    bot.send_message(cid, "خوش امدید", reply_markup=main_menu())
+    bot.send_message(cid, texts["welcome"], reply_markup=main_menu())
 
 # ---------------- VERFECATION ----------------
 
@@ -297,15 +297,15 @@ def normalize_phone_number(phone_text):
 
 # ---------------- MESSAGE HANDLER ----------------
 # -- more --
-@bot.message_handler(func=lambda message: message.text == "بیشتر")
+@bot.message_handler(func=lambda message: message.text == texts["btn_more"])
 def more_handler(message):
-    bot.send_message(message.chat.id, "یکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=more_menu_markup())
+    bot.send_message(message.chat.id, texts["more_choose"], reply_markup=more_menu_markup())
 
 # -- buy --
-@bot.message_handler(func=lambda message: message.text == "خرید")
+@bot.message_handler(func=lambda message: message.text == texts["btn_buy"])
 def buy_handler(message):
     cid = message.chat.id
-    bot.send_message(cid, "لطفاً نحوه نمایش فایل‌های خرید را انتخاب کنید:", reply_markup=buy_options_markup())
+    bot.send_message(cid, texts["buy_choose_mode"], reply_markup=buy_options_markup())
 
 # ---------------- CALLBACK HANDLER ----------------
 # -- buy --
@@ -317,14 +317,14 @@ def buy_callback_handler(call):
         show_properties(cid, mode='all')
     
     elif call.data == "buy_by_budget":
-        msg = bot.send_message(cid, "لطفاً **حداقل** بودجه خود را به تومان وارد کنید:\n(مثال: 500000000)")
+        msg = bot.send_message(cid, texts["buy_ask_min_budget"])
         bot.register_next_step_handler(msg, process_min_budget)
 
 # -- rent --
 
-@bot.message_handler(func=lambda message: message.text == "اجاره")
+@bot.message_handler(func=lambda message: message.text == texts["btn_rent"])
 def rent_handler(message):
-    bot.send_message(message.chat.id, "لطفاً روش جستجو را انتخاب کنید:", reply_markup=rent_options_markup())
+    bot.send_message(message.chat.id, texts["rent_choose_mode"], reply_markup=rent_options_markup())
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('rent_'))
 def rent_callback_handler(call):
@@ -333,23 +333,23 @@ def rent_callback_handler(call):
         show_rent_properties(cid, mode='all')
     
     elif call.data == "rent_by_deposit":
-        msg = bot.send_message(cid, "حداقل **ودیعه (رهن)** مورد نظر را وارد کنید:")
+        msg = bot.send_message(cid, texts["rent_ask_min_deposit"])
         bot.register_next_step_handler(msg, process_deposit_step, "min")
 
     elif call.data == "rent_by_monthly":
-        msg = bot.send_message(cid, "حداقل **اجاره ماهانه** مورد نظر را وارد کنید:")
+        msg = bot.send_message(cid, texts["rent_ask_min_monthly"])
         bot.register_next_step_handler(msg, process_rent_step, "min")
 
     elif call.data == "rent_by_combo":
-        msg = bot.send_message(cid, "شروع جستجوی ترکیبی.\nحداقل **ودیعه** را وارد کنید:")
+        msg = bot.send_message(cid, texts["rent_combo_start"])
         bot.register_next_step_handler(msg, process_combo_step, {"step": 1})
 
 # -- profile --
 
 STATUS_FA = {
-    'pending':  '🕐 در انتظار بررسی',
-    'accepted': '✅ تأیید شده',
-    'rejected': '❌ رد شده',
+    'pending':  texts["status_pending"],
+    'accepted': texts["status_accepted"],
+    'rejected': texts["status_rejected"],
 }
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("profile_"))
@@ -360,48 +360,42 @@ def profile_callback_handler(call):
     if call.data == "profile_show":
         user = get_user_by_telegram_id(telegram_id)
         if not user:
-            bot.answer_callback_query(call.id, "خطا: کاربر یافت نشد.")
+            bot.answer_callback_query(call.id, texts["profile_not_found"])
             return
 
         name     = user.get('name') or '—'
         username = f"@{user['username']}" if user.get('username') else '—'
-        phone    = user.get('phone') or 'ثبت نشده'
+        phone    = user.get('phone') or texts["profile_not_registered"]
         joined   = user['created_at'].strftime('%Y/%m/%d') if user.get('created_at') else '—'
 
-        text = (
-            f"👤 *پروفایل من*\n\n"
-            f"📛 نام: {name}\n"
-            f"🔗 یوزرنیم: {username}\n"
-            f"📱 شماره موبایل: {phone}\n"
-            f"📅 تاریخ عضویت: {joined}"
-        )
+        text = texts["profile_text"].format(name=name, username=username, phone=phone, joined=joined)
         bot.send_message(cid, text, parse_mode='Markdown', reply_markup=profile_markup())
 
     elif call.data == "profile_edit_phone":
-        msg = bot.send_message(cid, "📱 شماره موبایل جدید خود را وارد کنید (مثال: 09xxxxxxxxx):")
+        msg = bot.send_message(cid, texts["profile_ask_phone"])
         bot.register_next_step_handler(msg, process_profile_phone_step)
 
     elif call.data == "profile_edit_name":
-        msg = bot.send_message(cid, "📝 نام جدید خود را وارد کنید:")
+        msg = bot.send_message(cid, texts["profile_ask_name"])
         bot.register_next_step_handler(msg, process_profile_name_step)
 
     elif call.data == "profile_my_visits":
         user_db_id = get_user_id_by_telegram_id(telegram_id)
         if not user_db_id:
-            bot.answer_callback_query(call.id, "خطا: کاربر یافت نشد.")
+            bot.answer_callback_query(call.id, texts["profile_not_found"])
             return
 
         requests = get_user_visit_requests(user_db_id)
 
         if not requests:
-            bot.send_message(cid, "📋 شما هنوز هیچ درخواست بازدیدی ثبت نکرده‌اید.")
+            bot.send_message(cid, texts["profile_no_visits"])
             return
 
-        bot.send_message(cid, f"📋 *درخواست‌های بازدید شما* ({len(requests)} مورد):", parse_mode='Markdown')
+        bot.send_message(cid, texts["profile_visits_header"].format(count=len(requests)), parse_mode='Markdown')
 
         for req in requests:
             status_fa = STATUS_FA.get(req['status'], req['status'])
-            prop_type = 'خرید' if req['type'] == 'buy' else 'اجاره'
+            prop_type = texts["prop_type_buy"] if req['type'] == 'buy' else texts["prop_type_rent"]
 
             if req['type'] == 'buy':
                 price_line = f"💰 قیمت: {req['price']:,} تومان" if req.get('price') else ""
@@ -413,18 +407,22 @@ def profile_callback_handler(call):
 
             scheduled = ""
             if req.get('scheduled_time'):
-                scheduled = f"\n🗓 زمان بازدید: {req['scheduled_time'].strftime('%Y/%m/%d %H:%M')}"
+                scheduled = texts["profile_visit_scheduled"].format(
+                    scheduled_time=req['scheduled_time'].strftime('%Y/%m/%d %H:%M')
+                )
 
             admin_msg = ""
             if req.get('admin_message'):
-                admin_msg = f"\n💬 پیام مشاور: {req['admin_message']}"
+                admin_msg = texts["profile_visit_admin_msg"].format(admin_message=req['admin_message'])
 
             text = (
-                f"🏠 *{req['title']}* ({prop_type})\n"
-                f"{price_line}\n"
-                f"📌 وضعیت: {status_fa}\n"
-                f"🕐 تاریخ درخواست: {req['request_time'].strftime('%Y/%m/%d')}"
-                f"{scheduled}{admin_msg}"
+                texts["profile_visit_item"].format(
+                    title=req['title'],
+                    prop_type=prop_type,
+                    price_line=price_line,
+                    status_fa=status_fa,
+                    request_time=req['request_time'].strftime('%Y/%m/%d')
+                ) + scheduled + admin_msg
             )
             bot.send_message(cid, text, parse_mode='Markdown')
 
@@ -434,21 +432,21 @@ def process_profile_phone_step(message):
     cid = message.chat.id
     phone = normalize_phone_number(message.text)
     if not phone:
-        msg = bot.send_message(cid, "❌ شماره نامعتبر است. لطفاً با فرمت 09xxxxxxxxx وارد کنید:")
+        msg = bot.send_message(cid, texts["profile_invalid_phone"])
         bot.register_next_step_handler(msg, process_profile_phone_step)
         return
     update_user_phone(message.from_user.id, phone)
-    bot.send_message(cid, f"✅ شماره موبایل با موفقیت به {phone} تغییر یافت.")
+    bot.send_message(cid, texts["profile_phone_updated"].format(phone=phone))
 
 def process_profile_name_step(message):
     cid = message.chat.id
     name = message.text.strip()
     if len(name) < 2 or len(name) > 50:
-        msg = bot.send_message(cid, "❌ نام باید بین ۲ تا ۵۰ کاراکتر باشد. دوباره وارد کنید:")
+        msg = bot.send_message(cid, texts["profile_invalid_name"])
         bot.register_next_step_handler(msg, process_profile_name_step)
         return
     update_user_name(message.from_user.id, name)
-    bot.send_message(cid, f"✅ نام شما با موفقیت به «{name}» تغییر یافت.")
+    bot.send_message(cid, texts["profile_name_updated"].format(name=name))
 
 # -- visit request --
 
@@ -463,7 +461,7 @@ def handle_visit_request(call):
     
     if not user or not user.get('phone'):
         logger.info(f"[VISIT_REQUEST] user={cid} has no phone, requesting phone number")
-        msg = bot.send_message(cid, "برای ثبت درخواست بازدید، لطفاً شماره موبایل خود را وارد کنید (مثال: 0912xxxxxxx):")
+        msg = bot.send_message(cid, texts["visit_ask_phone"])
         bot.register_next_step_handler(msg, process_phone_step, pid)
     else:
         ask_for_confirmation(cid, pid)
@@ -474,7 +472,7 @@ def handle_visit_confirmation(call):
     
     if call.data == "cancel_visit":
         logger.info(f"[VISIT_CANCEL] user={cid} cancelled visit request")
-        bot.answer_callback_query(call.id, "درخواست لغو شد.")
+        bot.answer_callback_query(call.id, texts["visit_cancelled"])
         bot.delete_message(cid, call.message.message_id)
         return
 
@@ -483,20 +481,20 @@ def handle_visit_confirmation(call):
 
     if not user_db_id:
         logger.warning(f"[VISIT_CONFIRM] user={cid} not found in DB")
-        bot.answer_callback_query(call.id, "خطا: کاربر یافت نشد.")
+        bot.answer_callback_query(call.id, texts["visit_user_not_found"])
         return
 
     # چک کردن اینکه آیا درخواست پندینگ قبلی وجود داره یا نه
     if is_visit_request_pending(user_db_id, pid):
         logger.info(f"[VISIT_CONFIRM] user={cid} already has pending request for property={pid}")
-        bot.answer_callback_query(call.id, "شما قبلاً برای این ملک درخواست داده‌اید.")
-        bot.send_message(cid, "⚠️ درخواست شما قبلاً ثبت شده و در حال بررسی است.")
+        bot.answer_callback_query(call.id, texts["visit_already_pending"])
+        bot.send_message(cid, texts["visit_already_pending_msg"])
     else:
         # ثبت در دیتابیس (property_id اول، user_id دوم)
         request_id = create_visit_request(pid, user_db_id)
         logger.info(f"[VISIT_CONFIRM] new visit request created: id={request_id} user={cid} property={pid}")
-        bot.answer_callback_query(call.id, "موفقیت‌آمیز!")
-        bot.edit_message_text("✅ درخواست شما با موفقیت ثبت شد. مشاور به‌زودی با شما تماس می‌گیرد.", cid, call.message.message_id)
+        bot.answer_callback_query(call.id, texts["visit_success_toast"])
+        bot.edit_message_text(texts["visit_success_msg"], cid, call.message.message_id)
 
 # ---------------- FUNCTION ----------------
 # -- buy --
@@ -504,23 +502,23 @@ def handle_visit_confirmation(call):
 def process_min_budget(message):
     cid = message.chat.id
     if not message.text.isdigit():
-        msg = bot.send_message(cid, "لطفاً فقط عدد وارد کنید. دوباره حداقل بودجه را ارسال کنید:")
+        msg = bot.send_message(cid, texts["buy_invalid_number"])
         bot.register_next_step_handler(msg, process_min_budget)
         return
     
     min_price = int(message.text)
-    msg = bot.send_message(cid, f"حداقل بودجه: {min_price:,} تومان\nحالا **حداکثر** بودجه را وارد کنید:")
+    msg = bot.send_message(cid, texts["buy_ask_max_budget"].format(min_price=min_price))
     bot.register_next_step_handler(msg, process_max_budget, min_price)
 
 def process_max_budget(message, min_price):
     cid = message.chat.id
     if not message.text.isdigit():
-        msg = bot.send_message(cid, "لطفاً فقط عدد وارد کنید. حداکثر بودجه را ارسال کنید:")
+        msg = bot.send_message(cid, texts["buy_invalid_max"])
         bot.register_next_step_handler(msg, process_max_budget, min_price)
         return
     
     max_price = int(message.text)
-    bot.send_message(cid, f"در حال جست‌وجو برای بازه {min_price:,} تا {max_price:,} تومان...")
+    bot.send_message(cid, texts["buy_searching"].format(min_price=min_price, max_price=max_price))
     show_properties(cid, mode='budget', min_p=min_price, max_p=max_price)
 
 def show_properties(cid, mode='all', min_p=0, max_p=None):
@@ -538,16 +536,15 @@ def show_properties(cid, mode='all', min_p=0, max_p=None):
     rows = cursor.fetchall()
     
     if not rows:
-        bot.send_message(cid, "متأسفانه موردی یافت نشد. 😕")
+        bot.send_message(cid, texts["buy_not_found"])
     else:
         for row in rows:
-            # قالب‌بندی متن مشابه عکسی که فرستادی
-            caption = (
-                f"🏠 عنوان: {row['title']}\n\n"
-                f"💰 قیمت: {row['price']:,} تومان\n"
-                f"📐 متراژ: {row['metraj']} متر\n"
-                f"🛏 خواب: {row['rooms']}\n\n"
-                f"📝 توضیحات:\n{row['description']}"
+            caption = texts["buy_caption"].format(
+                title=row['title'],
+                price=row['price'],
+                metraj=row['metraj'],
+                rooms=row['rooms'],
+                description=row['description']
             )
             
             # پیدا کردن عکس‌های ملک از جدول property_images
@@ -556,7 +553,7 @@ def show_properties(cid, mode='all', min_p=0, max_p=None):
             
             # دکمه درخواست بازدید
             markup = InlineKeyboardMarkup()
-            markup.add(InlineKeyboardButton("📅 درخواست بازدید", callback_data=f"visit_{row['id']}"))
+            markup.add(InlineKeyboardButton(texts["btn_visit_request"], callback_data=f"visit_{row['id']}"))
             
             if img_row:
                 bot.send_photo(cid, img_row['telegram_file_id'], caption=caption, reply_markup=markup)
@@ -572,12 +569,12 @@ def process_deposit_step(message, type_mode, min_val=None):
     cid = message.chat.id
     val = normalize_number(message.text)
     if val is None:
-        msg = bot.send_message(cid, "لطفاً عدد معتبری وارد کنید:")
+        msg = bot.send_message(cid, texts["rent_invalid_number"])
         bot.register_next_step_handler(msg, process_deposit_step, type_mode, min_val)
         return
 
     if type_mode == "min":
-        msg = bot.send_message(cid, f"حداقل ودیعه: {val:,}\nحالا **حداکثر ودیعه** را وارد کنید:")
+        msg = bot.send_message(cid, texts["rent_ask_max_deposit"].format(val=val))
         bot.register_next_step_handler(msg, process_deposit_step, "max", val)
     else:
         show_rent_properties(cid, mode='deposit', filters={'min_dep': min_val, 'max_dep': val})
@@ -586,12 +583,12 @@ def process_rent_step(message, type_mode, min_val=None):
     cid = message.chat.id
     val = normalize_number(message.text)
     if val is None:
-        msg = bot.send_message(cid, "لطفاً عدد معتبری وارد کنید:")
+        msg = bot.send_message(cid, texts["rent_invalid_number"])
         bot.register_next_step_handler(msg, process_rent_step, type_mode, min_val)
         return
 
     if type_mode == "min":
-        msg = bot.send_message(cid, f"حداقل اجاره: {val:,}\nحالا **حداکثر اجاره** را وارد کنید:")
+        msg = bot.send_message(cid, texts["rent_ask_max_monthly"].format(val=val))
         bot.register_next_step_handler(msg, process_rent_step, "max", val)
     else:
         show_rent_properties(cid, mode='rent_val', filters={'min_rent': min_val, 'max_rent': val})
@@ -600,22 +597,22 @@ def process_combo_step(message, data):
     cid = message.chat.id
     val = normalize_number(message.text)
     if val is None:
-        msg = bot.send_message(cid, "ورودی نامعتبر. دوباره وارد کنید:")
+        msg = bot.send_message(cid, texts["rent_invalid_combo"])
         bot.register_next_step_handler(msg, process_combo_step, data)
         return
 
     step = data['step']
     if step == 1:
         data.update({'min_dep': val, 'step': 2})
-        msg = bot.send_message(cid, "حداکثر **ودیعه**؟")
+        msg = bot.send_message(cid, texts["rent_combo_ask_max_deposit"])
         bot.register_next_step_handler(msg, process_combo_step, data)
     elif step == 2:
         data.update({'max_dep': val, 'step': 3})
-        msg = bot.send_message(cid, "حداقل **اجاره ماهانه**؟")
+        msg = bot.send_message(cid, texts["rent_combo_ask_min_monthly"])
         bot.register_next_step_handler(msg, process_combo_step, data)
     elif step == 3:
         data.update({'min_rent': val, 'step': 4})
-        msg = bot.send_message(cid, "حداکثر **اجاره ماهانه**؟")
+        msg = bot.send_message(cid, texts["rent_combo_ask_max_monthly"])
         bot.register_next_step_handler(msg, process_combo_step, data)
     elif step == 4:
         data['max_rent'] = val
@@ -642,16 +639,16 @@ def show_rent_properties(cid, mode='all', filters=None):
     rows = cursor.fetchall()
 
     if not rows:
-        bot.send_message(cid, "موردی با این مشخصات پیدا نشد. 📍")
+        bot.send_message(cid, texts["rent_not_found"])
     else:
         for row in rows:
-            caption = (
-                f"🏠 عنوان: {row['title']}\n\n"
-                f"💰 ودیعه: {row['deposit']:,} تومان\n"
-                f"💸 اجاره: {row['rent']:,} تومان\n"
-                f"📐 متراژ: {row['metraj']} متر\n"
-                f"🛏 خواب: {row['rooms']}\n\n"
-                f"📝 توضیحات:\n{row['description']}"
+            caption = texts["rent_caption"].format(
+                title=row['title'],
+                deposit=row['deposit'],
+                rent=row['rent'],
+                metraj=row['metraj'],
+                rooms=row['rooms'],
+                description=row['description']
             )
             
             # دریافت تصویر اول
@@ -659,7 +656,7 @@ def show_rent_properties(cid, mode='all', filters=None):
             img = cursor.fetchone()
             
             markup = InlineKeyboardMarkup()
-            markup.add(InlineKeyboardButton("📅 درخواست بازدید", callback_data=f"visit_{row['id']}"))
+            markup.add(InlineKeyboardButton(texts["btn_visit_request"], callback_data=f"visit_{row['id']}"))
 
             if img:
                 bot.send_photo(cid, img['telegram_file_id'], caption=caption, reply_markup=markup)
@@ -677,23 +674,23 @@ def process_phone_step(message, pid):
     
     if not phone:
         logger.warning(f"[PHONE_STEP] user={cid} entered invalid phone: '{message.text}'")
-        msg = bot.send_message(cid, "❌ شماره نامعتبر است. لطفاً شماره موبایل را دقیقاً با فرمت 09xxxxxxxxx وارد کنید:")
+        msg = bot.send_message(cid, texts["visit_invalid_phone"])
         bot.register_next_step_handler(msg, process_phone_step, pid)
         return
     
     # ذخیره شماره در دیتابیس
     update_user_phone(message.from_user.id, phone)
     logger.info(f"[PHONE_STEP] user={cid} phone saved: {phone}")
-    bot.send_message(cid, "✅ شماره شما با موفقیت ثبت شد.")
+    bot.send_message(cid, texts["visit_phone_saved"])
     ask_for_confirmation(cid, pid)
 
 def ask_for_confirmation(cid, pid):
     markup = InlineKeyboardMarkup()
     markup.add(
-        InlineKeyboardButton("✅ بله، درخواست ثبت شود", callback_data=f"confirm_visit_{pid}"),
-        InlineKeyboardButton("❌ انصراف", callback_data="cancel_visit")
+        InlineKeyboardButton(texts["btn_confirm_visit"], callback_data=f"confirm_visit_{pid}"),
+        InlineKeyboardButton(texts["btn_cancel_visit"],  callback_data="cancel_visit")
     )
-    bot.send_message(cid, "آیا از درخواست بازدید برای این ملک اطمینان دارید؟ مشاور با شما تماس خواهد گرفت.", reply_markup=markup)
+    bot.send_message(cid, texts["visit_confirm_question"], reply_markup=markup)
 
 def is_visit_request_pending(user_id, pid):
     conn = get_connection()
@@ -731,7 +728,7 @@ def normalize_number(text):
 
 # -- درخواست های بازدید (ادمین) --
 
-@bot.message_handler(func=lambda m: m.text == "درخواست های بازدید" and is_admin(m.chat.id))
+@bot.message_handler(func=lambda m: m.text == texts["btn_visit_requests"] and is_admin(m.chat.id))
 def admin_visit_requests(message):
     cid = message.chat.id
     logger.info(f"[ADMIN_VISITS] admin={cid} opened visit requests panel")
@@ -753,21 +750,21 @@ def admin_visit_requests(message):
     logger.info(f"[ADMIN_VISITS] admin={cid} found {len(rows)} pending requests")
 
     if not rows:
-        bot.send_message(cid, "📋 هیچ درخواست در انتظاری وجود ندارد.")
+        bot.send_message(cid, texts["admin_no_pending_visits"])
         return
 
-    bot.send_message(cid, f"📋 *درخواست‌های pending* ({len(rows)} مورد):", parse_mode='Markdown')
+    bot.send_message(cid, texts["admin_pending_visits_header"].format(count=len(rows)), parse_mode='Markdown')
     for req in rows:
-        text = (
-            f"🏠 ملک: {req['prop_title']}\n"
-            f"👤 کاربر: {req['user_name'] or '—'}\n"
-            f"📱 تلفن: {req['user_phone'] or 'ثبت نشده'}\n"
-            f"🕐 زمان درخواست: {req['request_time'].strftime('%Y/%m/%d %H:%M')}"
+        text = texts["admin_visit_item"].format(
+            prop_title=req['prop_title'],
+            user_name=req['user_name'] or '—',
+            user_phone=req['user_phone'] or texts["admin_visit_no_phone"],
+            request_time=req['request_time'].strftime('%Y/%m/%d %H:%M')
         )
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(
-            InlineKeyboardButton("✅ تأیید", callback_data=f"vr_accept_{req['id']}"),
-            InlineKeyboardButton("❌ رد",    callback_data=f"vr_reject_{req['id']}"),
+            InlineKeyboardButton(texts["btn_accept_visit"], callback_data=f"vr_accept_{req['id']}"),
+            InlineKeyboardButton(texts["btn_reject_visit"], callback_data=f"vr_reject_{req['id']}"),
         )
         bot.send_message(cid, text, reply_markup=markup)
 
@@ -782,10 +779,10 @@ def admin_handle_visit(call):
     logger.info(f"[ADMIN_VISIT_ACTION] admin={cid} action={action} visit_request_id={vr_id}")
 
     if action == "accept":
-        msg = bot.send_message(cid, "📅 زمان بازدید را وارد کنید:")
+        msg = bot.send_message(cid, texts["admin_ask_visit_time"])
         bot.register_next_step_handler(msg, admin_set_visit_time, vr_id)
     else:
-        msg = bot.send_message(cid, "💬 دلیل رد درخواست را بنویسید (یا «—» برای بدون دلیل):")
+        msg = bot.send_message(cid, texts["admin_ask_reject_reason"])
         bot.register_next_step_handler(msg, admin_reject_visit, vr_id)
     bot.delete_message(cid, call.message.message_id)
 
@@ -807,16 +804,16 @@ def admin_set_visit_time(message, vr_id):
         SET status = 'accepted', admin_message = %s,
             admin_id = (SELECT id FROM admins WHERE telegram_id = %s LIMIT 1)
         WHERE id = %s
-    """, (f"زمان بازدید: {scheduled}", cid, vr_id))
+    """, (texts["admin_visit_accepted_db"].format(scheduled=scheduled), cid, vr_id))
     conn.commit()
     cur.close()
     conn.close()
     logger.info(f"[VISIT_ACCEPTED] admin={cid} visit_request_id={vr_id} scheduled='{scheduled}' user_tid={row['user_tid'] if row else '?'}")
-    bot.send_message(cid, f"✅ درخواست تأیید شد. زمان: {scheduled}")
+    bot.send_message(cid, texts["admin_visit_accepted"].format(scheduled=scheduled))
     if row:
         bot.send_message(
             row['user_tid'],
-            f"✅ درخواست بازدید شما برای *{row['title']}* تأیید شد!\n🗓 زمان: {scheduled}",
+            texts["admin_visit_accepted_user"].format(title=row['title'], scheduled=scheduled),
             parse_mode='Markdown'
         )
 
@@ -844,25 +841,25 @@ def admin_reject_visit(message, vr_id):
     cur.close()
     conn.close()
     logger.info(f"[VISIT_REJECTED] admin={cid} visit_request_id={vr_id} reason='{reason}' user_tid={row['user_tid'] if row else '?'}")
-    bot.send_message(cid, "❌ درخواست رد شد.")
+    bot.send_message(cid, texts["admin_visit_rejected_admin"])
     if row:
-        user_text = f"❌ متأسفانه درخواست بازدید شما برای *{row['title']}* رد شد."
+        user_text = texts["admin_visit_rejected_user"].format(title=row['title'])
         if reason != '—':
-            user_text += f"\n💬 دلیل: {reason}"
+            user_text += texts["admin_visit_rejected_reason"].format(reason=reason)
         bot.send_message(row['user_tid'], user_text, parse_mode='Markdown')
 
 # ================ افزودن فایل جدید ================
 
-@bot.message_handler(func=lambda m: m.text == "افزودن فایل جدید" and is_admin(m.chat.id))
+@bot.message_handler(func=lambda m: m.text == texts["btn_add_property"] and is_admin(m.chat.id))
 def admin_add_property_start(message):
     cid = message.chat.id
     logger.info(f"[ADD_PROPERTY] admin={cid} started adding new property")
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
-        InlineKeyboardButton("🏠 خرید", callback_data="newprop_type_buy"),
-        InlineKeyboardButton("🔑 اجاره", callback_data="newprop_type_rent"),
+        InlineKeyboardButton(texts["btn_prop_type_buy"],  callback_data="newprop_type_buy"),
+        InlineKeyboardButton(texts["btn_prop_type_rent"], callback_data="newprop_type_rent"),
     )
-    bot.send_message(cid, "نوع ملک را انتخاب کنید:", reply_markup=markup)
+    bot.send_message(cid, texts["admin_choose_prop_type"], reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("newprop_type_"))
 def admin_add_property_type(call):
@@ -871,58 +868,58 @@ def admin_add_property_type(call):
         return
     prop_type = call.data.split("_")[2]  # buy | rent
     bot.delete_message(cid, call.message.message_id)
-    msg = bot.send_message(cid, "📛 عنوان ملک را وارد کنید:")
+    msg = bot.send_message(cid, texts["admin_ask_title"])
     bot.register_next_step_handler(msg, admin_add_property_title, {"type": prop_type})
 
 def admin_add_property_title(message, data):
     cid = message.chat.id
     title = message.text.strip()
     if not title:
-        msg = bot.send_message(cid, "❌ عنوان نمی‌تواند خالی باشد. دوباره وارد کنید:")
+        msg = bot.send_message(cid, texts["admin_empty_title"])
         bot.register_next_step_handler(msg, admin_add_property_title, data)
         return
     data['title'] = title
-    msg = bot.send_message(cid, "📝 توضیحات ملک را وارد کنید:")
+    msg = bot.send_message(cid, texts["admin_ask_description"])
     bot.register_next_step_handler(msg, admin_add_property_description, data)
 
 def admin_add_property_description(message, data):
     cid = message.chat.id
     data['description'] = message.text.strip()
-    msg = bot.send_message(cid, "📐 متراژ ملک را وارد کنید (عدد):")
+    msg = bot.send_message(cid, texts["admin_ask_metraj"])
     bot.register_next_step_handler(msg, admin_add_property_metraj, data)
 
 def admin_add_property_metraj(message, data):
     cid = message.chat.id
     val = normalize_number(message.text)
     if val is None:
-        msg = bot.send_message(cid, "❌ لطفاً یک عدد معتبر برای متراژ وارد کنید:")
+        msg = bot.send_message(cid, texts["admin_invalid_metraj"])
         bot.register_next_step_handler(msg, admin_add_property_metraj, data)
         return
     data['metraj'] = val
-    msg = bot.send_message(cid, "🛏 تعداد اتاق‌ها را وارد کنید (عدد):")
+    msg = bot.send_message(cid, texts["admin_ask_rooms"])
     bot.register_next_step_handler(msg, admin_add_property_rooms, data)
 
 def admin_add_property_rooms(message, data):
     cid = message.chat.id
     val = normalize_number(message.text)
     if val is None or val < 0:
-        msg = bot.send_message(cid, "❌ تعداد اتاق نامعتبر است. دوباره وارد کنید:")
+        msg = bot.send_message(cid, texts["admin_invalid_rooms"])
         bot.register_next_step_handler(msg, admin_add_property_rooms, data)
         return
     data['rooms'] = val
 
     if data['type'] == 'buy':
-        msg = bot.send_message(cid, "💰 قیمت ملک را به تومان وارد کنید:")
+        msg = bot.send_message(cid, texts["admin_ask_price"])
         bot.register_next_step_handler(msg, admin_add_property_price, data)
     else:
-        msg = bot.send_message(cid, "💰 مبلغ ودیعه (رهن) را به تومان وارد کنید:")
+        msg = bot.send_message(cid, texts["admin_ask_deposit"])
         bot.register_next_step_handler(msg, admin_add_property_deposit, data)
 
 def admin_add_property_price(message, data):
     cid = message.chat.id
     val = normalize_number(message.text)
     if val is None or val <= 0:
-        msg = bot.send_message(cid, "❌ قیمت نامعتبر است. لطفاً یک عدد معتبر (حداکثر ۹۹۹ میلیارد تومان) وارد کنید:")
+        msg = bot.send_message(cid, texts["admin_invalid_price"])
         bot.register_next_step_handler(msg, admin_add_property_price, data)
         return
     data['price'] = val
@@ -932,10 +929,9 @@ def admin_add_property_price(message, data):
     _pending_property_data[cid] = data
     msg = bot.send_message(
         cid,
-        "🖼 عکس‌های ملک را یک‌به‌یک ارسال کنید.\n"
-        "بعد از ارسال همه عکس‌ها، دکمه «✅ اتمام» را بزنید.",
+        texts["admin_ask_photos"],
         reply_markup=InlineKeyboardMarkup().add(
-            InlineKeyboardButton("✅ اتمام ارسال عکس‌ها", callback_data="newprop_photos_done")
+            InlineKeyboardButton(texts["btn_photos_done"], callback_data="newprop_photos_done")
         )
     )
     bot.register_next_step_handler(msg, admin_add_property_photo, data)
@@ -944,18 +940,18 @@ def admin_add_property_deposit(message, data):
     cid = message.chat.id
     val = normalize_number(message.text)
     if val is None or val < 0:
-        msg = bot.send_message(cid, "❌ مبلغ نامعتبر است. لطفاً یک عدد معتبر (حداکثر ۹۹۹ میلیارد تومان) وارد کنید:")
+        msg = bot.send_message(cid, texts["admin_invalid_deposit"])
         bot.register_next_step_handler(msg, admin_add_property_deposit, data)
         return
     data['deposit'] = val
-    msg = bot.send_message(cid, "💸 مبلغ اجاره ماهانه را به تومان وارد کنید:")
+    msg = bot.send_message(cid, texts["admin_ask_rent"])
     bot.register_next_step_handler(msg, admin_add_property_rent, data)
 
 def admin_add_property_rent(message, data):
     cid = message.chat.id
     val = normalize_number(message.text)
     if val is None or val < 0:
-        msg = bot.send_message(cid, "❌ مبلغ نامعتبر است. لطفاً یک عدد معتبر (حداکثر ۹۹۹ میلیارد تومان) وارد کنید:")
+        msg = bot.send_message(cid, texts["admin_invalid_rent"])
         bot.register_next_step_handler(msg, admin_add_property_rent, data)
         return
     data['rent'] = val
@@ -964,10 +960,9 @@ def admin_add_property_rent(message, data):
     _pending_property_data[cid] = data
     msg = bot.send_message(
         cid,
-        "🖼 عکس‌های ملک را یک‌به‌یک ارسال کنید.\n"
-        "بعد از ارسال همه عکس‌ها، دکمه «✅ اتمام» را بزنید.",
+        texts["admin_ask_photos"],
         reply_markup=InlineKeyboardMarkup().add(
-            InlineKeyboardButton("✅ اتمام ارسال عکس‌ها", callback_data="newprop_photos_done")
+            InlineKeyboardButton(texts["btn_photos_done"], callback_data="newprop_photos_done")
         )
     )
     bot.register_next_step_handler(msg, admin_add_property_photo, data)
@@ -986,7 +981,7 @@ def admin_add_property_photos_done(call):
     # داده‌های این ادمین از next_step جاری قابل دسترس نیست؛ از dict موقت استفاده می‌کنیم
     data = _pending_property_data.get(cid)
     if not data:
-        bot.answer_callback_query(call.id, "⚠️ اطلاعاتی یافت نشد. دوباره شروع کنید.")
+        bot.answer_callback_query(call.id, texts["admin_no_pending_data"])
         return
 
     _save_property_and_notify(cid, call.message.message_id, data)
@@ -1007,18 +1002,18 @@ def admin_add_property_photo(message, data):
         count = len(data['photos'])
         msg = bot.send_message(
             cid,
-            f"✅ عکس {count} دریافت شد. عکس بعدی را ارسال کنید یا «✅ اتمام» را بزنید.",
+            texts["admin_photo_received"].format(count=count),
             reply_markup=InlineKeyboardMarkup().add(
-                InlineKeyboardButton("✅ اتمام ارسال عکس‌ها", callback_data="newprop_photos_done")
+                InlineKeyboardButton(texts["btn_photos_done"], callback_data="newprop_photos_done")
             )
         )
         bot.register_next_step_handler(msg, admin_add_property_photo, data)
     else:
         msg = bot.send_message(
             cid,
-            "⚠️ لطفاً فقط عکس ارسال کنید یا دکمه «✅ اتمام» را بزنید.",
+            texts["admin_photo_only"],
             reply_markup=InlineKeyboardMarkup().add(
-                InlineKeyboardButton("✅ اتمام ارسال عکس‌ها", callback_data="newprop_photos_done")
+                InlineKeyboardButton(texts["btn_photos_done"], callback_data="newprop_photos_done")
             )
         )
         bot.register_next_step_handler(msg, admin_add_property_photo, data)
@@ -1056,29 +1051,31 @@ def _save_property_and_notify(cid, msg_id, data):
 
     _pending_property_data.pop(cid, None)
 
-    type_fa = "خرید" if data['type'] == 'buy' else "اجاره"
+    type_fa = texts["admin_prop_type_buy_fa"] if data['type'] == 'buy' else texts["admin_prop_type_rent_fa"]
     bot.send_message(
         cid,
-        f"✅ فایل جدید با موفقیت ثبت شد!\n\n"
-        f"🏠 عنوان: {data['title']}\n"
-        f"🔖 نوع: {type_fa}\n"
-        f"📐 متراژ: {data['metraj']} متر | 🛏 {data['rooms']} خواب\n"
-        f"🖼 تعداد عکس: {photos_count}",
+        texts["admin_property_saved"].format(
+            title=data['title'],
+            type_fa=type_fa,
+            metraj=data['metraj'],
+            rooms=data['rooms'],
+            photos_count=photos_count
+        ),
         reply_markup=admin_menu() if not is_superuser(cid) else superuser_menu()
     )
 
 # ================ مدیریت فایل‌ها ================
 
-@bot.message_handler(func=lambda m: m.text == "مدیریت فایل ها" and is_admin(m.chat.id))
+@bot.message_handler(func=lambda m: m.text == texts["btn_manage_properties"] and is_admin(m.chat.id))
 def admin_manage_properties(message):
     cid = message.chat.id
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
-        InlineKeyboardButton("🏠 فایل‌های خرید", callback_data="mgprop_list_buy"),
-        InlineKeyboardButton("🔑 فایل‌های اجاره", callback_data="mgprop_list_rent"),
+        InlineKeyboardButton(texts["btn_manage_buy"],  callback_data="mgprop_list_buy"),
+        InlineKeyboardButton(texts["btn_manage_rent"], callback_data="mgprop_list_rent"),
     )
-    markup.add(InlineKeyboardButton("📋 همه فایل‌ها", callback_data="mgprop_list_all"))
-    bot.send_message(cid, "کدام دسته فایل‌ها را می‌خواهید مدیریت کنید؟", reply_markup=markup)
+    markup.add(InlineKeyboardButton(texts["btn_manage_all"], callback_data="mgprop_list_all"))
+    bot.send_message(cid, texts["admin_choose_prop_filter"], reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_list_"))
 def admin_manage_list(call):
@@ -1103,17 +1100,17 @@ def admin_manage_list(call):
     conn.close()
 
     if not rows:
-        bot.send_message(cid, "هیچ فایلی یافت نشد.")
+        bot.send_message(cid, texts["admin_no_properties"])
         return
 
     markup = InlineKeyboardMarkup(row_width=1)
     STATUS_ICON = {'available': '🟢', 'sold': '🔵', 'inactive': '🔴'}
-    TYPE_FA = {'buy': 'خرید', 'rent': 'اجاره'}
+    TYPE_FA = {'buy': texts["admin_prop_type_buy_fa"], 'rent': texts["admin_prop_type_rent_fa"]}
     for r in rows:
         icon = STATUS_ICON.get(r['status'], '⚪')
         label = f"{icon} [{TYPE_FA.get(r['type'], r['type'])}] {r['title']}"
         markup.add(InlineKeyboardButton(label, callback_data=f"mgprop_detail_{r['id']}"))
-    bot.send_message(cid, f"📂 فایل‌ها ({len(rows)} مورد):", reply_markup=markup)
+    bot.send_message(cid, texts["admin_properties_header"].format(count=len(rows)), reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_detail_"))
 def admin_manage_detail(call):
@@ -1123,7 +1120,7 @@ def admin_manage_detail(call):
     # mgprop_detail_12 → split("_", 2) = ['mgprop', 'detail', '12']
     parts = call.data.split("_", 2)
     if len(parts) < 3 or not parts[2].isdigit():
-        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        bot.answer_callback_query(call.id, texts["admin_invalid_data"])
         return
     prop_id = int(parts[2])
 
@@ -1137,42 +1134,50 @@ def admin_manage_detail(call):
     conn.close()
 
     if not p:
-        bot.answer_callback_query(call.id, "فایل یافت نشد.")
+        bot.answer_callback_query(call.id, texts["admin_prop_not_found"])
         return
 
-    STATUS_FA = {'available': '🟢 موجود', 'sold': '🔵 فروخته شده', 'inactive': '🔴 غیرفعال'}
-    TYPE_FA   = {'buy': 'خرید', 'rent': 'اجاره'}
-    type_fa   = TYPE_FA.get(p['type'], p['type'])
+    STATUS_FA_MAP = {
+        'available': texts["admin_prop_status_available"],
+        'sold':      texts["admin_prop_status_sold"],
+        'inactive':  texts["admin_prop_status_inactive"]
+    }
+    TYPE_FA_MAP = {
+        'buy':  texts["admin_prop_type_buy_fa"],
+        'rent': texts["admin_prop_type_rent_fa"]
+    }
+    type_fa = TYPE_FA_MAP.get(p['type'], p['type'])
 
     if p['type'] == 'buy':
-        price_line = f"💰 قیمت: {p['price']:,} تومان" if p.get('price') else "💰 قیمت: —"
+        price_line = texts["admin_prop_price_line_buy"].format(price=p['price']) if p.get('price') else texts["admin_prop_price_line_buy_empty"]
     else:
         deposit = p.get('deposit') or 0
         rent    = p.get('rent')    or 0
-        price_line = f"💰 ودیعه: {deposit:,} تومان\n💸 اجاره: {rent:,} تومان"
+        price_line = texts["admin_prop_price_line_rent"].format(deposit=deposit, rent=rent)
 
-    text = (
-        f"🏠 *{p['title']}*\n"
-        f"🔖 نوع: {type_fa}\n"
-        f"{price_line}\n"
-        f"📐 متراژ: {p['metraj']} متر | 🛏 {p['rooms']} خواب\n"
-        f"📌 وضعیت: {STATUS_FA.get(p['status'], p['status'])}\n"
-        f"🖼 تعداد عکس: {img_cnt}\n\n"
-        f"📝 {p['description']}"
+    text = texts["admin_prop_detail"].format(
+        title=p['title'],
+        type_fa=type_fa,
+        price_line=price_line,
+        metraj=p['metraj'],
+        rooms=p['rooms'],
+        status_fa=STATUS_FA_MAP.get(p['status'], p['status']),
+        img_cnt=img_cnt,
+        description=p['description']
     )
 
     markup = InlineKeyboardMarkup(row_width=2)
     if p['status'] != 'available':
-        markup.add(InlineKeyboardButton("🟢 موجود",        callback_data=f"mgprop_status_{prop_id}_available"))
+        markup.add(InlineKeyboardButton(texts["btn_status_available"],  callback_data=f"mgprop_status_{prop_id}_available"))
     if p['status'] != 'sold':
-        markup.add(InlineKeyboardButton("🔵 فروخته شده",   callback_data=f"mgprop_status_{prop_id}_sold"))
+        markup.add(InlineKeyboardButton(texts["btn_status_sold"],       callback_data=f"mgprop_status_{prop_id}_sold"))
     if p['status'] != 'inactive':
-        markup.add(InlineKeyboardButton("🔴 غیرفعال",      callback_data=f"mgprop_status_{prop_id}_inactive"))
-    markup.add(InlineKeyboardButton("✏️ ویرایش عنوان",    callback_data=f"mgprop_edit_title_{prop_id}"))
-    markup.add(InlineKeyboardButton("📝 ویرایش توضیحات", callback_data=f"mgprop_edit_desc_{prop_id}"))
-    markup.add(InlineKeyboardButton("💰 ویرایش قیمت",    callback_data=f"mgprop_edit_price_{prop_id}"))
-    markup.add(InlineKeyboardButton("🖼 مدیریت عکس‌ها",  callback_data=f"mgprop_photos_{prop_id}"))
-    markup.add(InlineKeyboardButton("🗑 حذف فایل",        callback_data=f"mgprop_delete_{prop_id}"))
+        markup.add(InlineKeyboardButton(texts["btn_status_inactive"],   callback_data=f"mgprop_status_{prop_id}_inactive"))
+    markup.add(InlineKeyboardButton(texts["btn_edit_title"],            callback_data=f"mgprop_edit_title_{prop_id}"))
+    markup.add(InlineKeyboardButton(texts["btn_edit_desc"],             callback_data=f"mgprop_edit_desc_{prop_id}"))
+    markup.add(InlineKeyboardButton(texts["btn_edit_price"],            callback_data=f"mgprop_edit_price_{prop_id}"))
+    markup.add(InlineKeyboardButton(texts["btn_manage_photos"],         callback_data=f"mgprop_photos_{prop_id}"))
+    markup.add(InlineKeyboardButton(texts["btn_delete_property"],       callback_data=f"mgprop_delete_{prop_id}"))
 
     bot.send_message(cid, text, parse_mode='Markdown', reply_markup=markup)
 
@@ -1185,7 +1190,7 @@ def admin_edit_price_start(call):
     # "mgprop_edit_price_12" → split("_", 3) → ['mgprop', 'edit', 'price', '12']
     parts = call.data.split("_", 3)
     if len(parts) < 4 or not parts[3].isdigit():
-        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        bot.answer_callback_query(call.id, texts["admin_invalid_data"])
         return
     prop_id = int(parts[3])
 
@@ -1197,14 +1202,14 @@ def admin_edit_price_start(call):
     conn.close()
 
     if not p:
-        bot.answer_callback_query(call.id, "فایل یافت نشد.")
+        bot.answer_callback_query(call.id, texts["admin_prop_not_found"])
         return
 
     if p['type'] == 'buy':
-        msg = bot.send_message(cid, "💰 قیمت جدید را به تومان وارد کنید:")
+        msg = bot.send_message(cid, texts["admin_ask_new_price"])
         bot.register_next_step_handler(msg, admin_edit_price_save, prop_id, 'buy')
     else:
-        msg = bot.send_message(cid, "💰 ودیعه (رهن) جدید را به تومان وارد کنید:")
+        msg = bot.send_message(cid, texts["admin_ask_new_deposit"])
         bot.register_next_step_handler(msg, admin_edit_deposit_save, prop_id)
 
 
@@ -1218,16 +1223,16 @@ def admin_change_status(call):
     # "mgprop_status_12_available" → split("_", 3) → ['mgprop', 'status', '12', 'available']
     parts = call.data.split("_", 3)
     if len(parts) < 4:
-        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        bot.answer_callback_query(call.id, texts["admin_invalid_data"])
         return
     if not parts[2].isdigit():
-        bot.answer_callback_query(call.id, "⚠️ شناسه ملک نامعتبر.")
+        bot.answer_callback_query(call.id, texts["admin_invalid_prop_id"])
         return
     prop_id    = int(parts[2])
     new_status = parts[3]
     VALID_STATUSES = ('available', 'sold', 'inactive')
     if new_status not in VALID_STATUSES:
-        bot.answer_callback_query(call.id, "⚠️ وضعیت نامعتبر.")
+        bot.answer_callback_query(call.id, texts["admin_invalid_status"])
         return
 
     conn = get_connection()
@@ -1237,9 +1242,13 @@ def admin_change_status(call):
     cur.close()
     conn.close()
 
-    STATUS_FA = {'available': 'موجود', 'sold': 'فروخته شده', 'inactive': 'غیرفعال'}
+    STATUS_FA_MAP = {
+        'available': texts["admin_prop_status_available"],
+        'sold':      texts["admin_prop_status_sold"],
+        'inactive':  texts["admin_prop_status_inactive"]
+    }
     logger.info(f"[CHANGE_STATUS] prop_id={prop_id} new_status={new_status}")
-    bot.answer_callback_query(call.id, f"✅ وضعیت به «{STATUS_FA.get(new_status)}» تغییر یافت.")
+    bot.answer_callback_query(call.id, texts["admin_status_changed"].format(status_fa=STATUS_FA_MAP.get(new_status)))
     bot.delete_message(cid, call.message.message_id)
 
 
@@ -1253,17 +1262,17 @@ def admin_edit_title_start(call):
     # "mgprop_edit_title_12" → split("_", 3) → ['mgprop', 'edit', 'title', '12']
     parts = call.data.split("_", 3)
     if len(parts) < 4 or not parts[3].isdigit():
-        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        bot.answer_callback_query(call.id, texts["admin_invalid_data"])
         return
     prop_id = int(parts[3])
-    msg = bot.send_message(cid, "✏️ عنوان جدید ملک را وارد کنید:")
+    msg = bot.send_message(cid, texts["admin_ask_new_title"])
     bot.register_next_step_handler(msg, admin_edit_title_save, prop_id)
 
 def admin_edit_title_save(message, prop_id):
     cid = message.chat.id
     new_title = message.text.strip()
     if not new_title:
-        msg = bot.send_message(cid, "❌ عنوان نمی‌تواند خالی باشد:")
+        msg = bot.send_message(cid, texts["admin_empty_new_title"])
         bot.register_next_step_handler(msg, admin_edit_title_save, prop_id)
         return
     conn = get_connection()
@@ -1273,7 +1282,7 @@ def admin_edit_title_save(message, prop_id):
     cur.close()
     conn.close()
     logger.info(f"[EDIT_TITLE] prop_id={prop_id} new_title='{new_title}'")
-    bot.send_message(cid, f"✅ عنوان با موفقیت به «{new_title}» تغییر یافت.")
+    bot.send_message(cid, texts["admin_title_updated"].format(new_title=new_title))
 
 # -- ویرایش توضیحات --
 
@@ -1285,10 +1294,10 @@ def admin_edit_desc_start(call):
     # "mgprop_edit_desc_12" → split("_", 3) → ['mgprop', 'edit', 'desc', '12']
     parts = call.data.split("_", 3)
     if len(parts) < 4 or not parts[3].isdigit():
-        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        bot.answer_callback_query(call.id, texts["admin_invalid_data"])
         return
     prop_id = int(parts[3])
-    msg = bot.send_message(cid, "📝 توضیحات جدید را وارد کنید:")
+    msg = bot.send_message(cid, texts["admin_ask_new_desc"])
     bot.register_next_step_handler(msg, admin_edit_desc_save, prop_id)
 
 
@@ -1303,7 +1312,7 @@ def admin_edit_desc_save(message, prop_id):
     cur.close()
     conn.close()
     logger.info(f"[EDIT_DESC] prop_id={prop_id}")
-    bot.send_message(cid, "✅ توضیحات با موفقیت بروزرسانی شد.")
+    bot.send_message(cid, texts["admin_desc_updated"])
 
 # -- ویرایش قیمت --
 
@@ -1318,22 +1327,17 @@ def handle_visit_request(call):
 
     if not user or not user.get('phone'):
         logger.info(f"[VISIT_REQUEST] user={cid} has no phone, requesting phone number")
-        msg = bot.send_message(cid, "برای ثبت درخواست بازدید، لطفاً شماره موبایل خود را وارد کنید (مثال: 0912xxxxxxx):")
+        msg = bot.send_message(cid, texts["visit_ask_phone"])
         bot.register_next_step_handler(msg, process_phone_step, pid)
     else:
         ask_for_confirmation(cid, pid)
-
-
-
-
-
 
 
 def admin_edit_price_save(message, prop_id, prop_type):
     cid = message.chat.id
     val = normalize_number(message.text)
     if val is None or val <= 0:
-        msg = bot.send_message(cid, "❌ عدد نامعتبر است. دوباره وارد کنید:")
+        msg = bot.send_message(cid, texts["admin_invalid_new_price"])
         bot.register_next_step_handler(msg, admin_edit_price_save, prop_id, prop_type)
         return
     conn = get_connection()
@@ -1343,12 +1347,13 @@ def admin_edit_price_save(message, prop_id, prop_type):
     cur.close()
     conn.close()
     logger.info(f"[EDIT_PRICE] prop_id={prop_id} new_price={val}")
-    bot.send_message(cid, f"✅ قیمت با موفقیت به {val:,} تومان تغییر یافت.")
+    bot.send_message(cid, texts["admin_price_updated"].format(val=val))
+
 def admin_edit_deposit_save(message, prop_id):
     cid = message.chat.id
     val = normalize_number(message.text)
     if val is None or val < 0:
-        msg = bot.send_message(cid, "❌ عدد نامعتبر است. دوباره وارد کنید:")
+        msg = bot.send_message(cid, texts["admin_invalid_new_price"])
         bot.register_next_step_handler(msg, admin_edit_deposit_save, prop_id)
         return
     conn = get_connection()
@@ -1357,14 +1362,14 @@ def admin_edit_deposit_save(message, prop_id):
     conn.commit()
     cur.close()
     conn.close()
-    msg = bot.send_message(cid, f"✅ ودیعه ثبت شد: {val:,} تومان\n💸 اجاره ماهانه جدید را وارد کنید:")
+    msg = bot.send_message(cid, texts["admin_deposit_saved"].format(val=val))
     bot.register_next_step_handler(msg, admin_edit_rent_save, prop_id)
 
 def admin_edit_rent_save(message, prop_id):
     cid = message.chat.id
     val = normalize_number(message.text)
     if val is None or val < 0:
-        msg = bot.send_message(cid, "❌ عدد نامعتبر است. دوباره وارد کنید:")
+        msg = bot.send_message(cid, texts["admin_invalid_new_price"])
         bot.register_next_step_handler(msg, admin_edit_rent_save, prop_id)
         return
     conn = get_connection()
@@ -1374,7 +1379,7 @@ def admin_edit_rent_save(message, prop_id):
     cur.close()
     conn.close()
     logger.info(f"[EDIT_RENT] prop_id={prop_id} new_rent={val}")
-    bot.send_message(cid, f"✅ اجاره ماهانه با موفقیت به {val:,} تومان تغییر یافت.")
+    bot.send_message(cid, texts["admin_rent_updated"].format(val=val))
 
 
 # -- مدیریت عکس‌ها --
@@ -1386,7 +1391,7 @@ def admin_manage_photos(call):
         return
     parts = call.data.split("_", 2)
     if len(parts) < 3 or not parts[2].isdigit():
-        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        bot.answer_callback_query(call.id, texts["admin_invalid_data"])
         return
     prop_id = int(parts[2])
 
@@ -1399,29 +1404,25 @@ def admin_manage_photos(call):
 
     if not imgs:
         markup = InlineKeyboardMarkup().add(
-            InlineKeyboardButton("➕ افزودن عکس", callback_data=f"mgprop_addphoto_{prop_id}")
+            InlineKeyboardButton(texts["btn_add_photo"], callback_data=f"mgprop_addphoto_{prop_id}")
         )
-        bot.send_message(cid, "🖼 این ملک عکسی ندارد.", reply_markup=markup)
+        bot.send_message(cid, texts["admin_no_photos"], reply_markup=markup)
         return
 
-    bot.send_message(cid, f"🖼 *عکس‌های ملک* ({len(imgs)} تصویر):\nبرای حذف هر عکس روی دکمه زیر آن بزنید.", parse_mode='Markdown')
+    bot.send_message(cid, texts["admin_photos_header"].format(count=len(imgs)), parse_mode='Markdown')
     for img in imgs:
         markup = InlineKeyboardMarkup().add(
-            InlineKeyboardButton("🗑 حذف این عکس", callback_data=f"mgprop_delphoto_{img['id']}_{prop_id}")
+            InlineKeyboardButton(texts["btn_delete_photo"], callback_data=f"mgprop_delphoto_{img['id']}_{prop_id}")
         )
         try:
             bot.send_photo(cid, img['telegram_file_id'], reply_markup=markup)
         except Exception:
-            bot.send_message(cid, f"⚠️ عکس با ID {img['id']} قابل نمایش نیست.", reply_markup=markup)
+            bot.send_message(cid, texts["admin_photo_not_displayable"].format(img_id=img['id']), reply_markup=markup)
 
     markup = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("➕ افزودن عکس جدید", callback_data=f"mgprop_addphoto_{prop_id}")
+        InlineKeyboardButton(texts["btn_add_new_photo"], callback_data=f"mgprop_addphoto_{prop_id}")
     )
-    bot.send_message(cid, "برای افزودن عکس جدید:", reply_markup=markup)
-
-
-
-
+    bot.send_message(cid, texts["admin_add_photo_prompt"], reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("mgprop_delphoto_"))
@@ -1432,7 +1433,7 @@ def admin_delete_photo(call):
     # "mgprop_delphoto_5_12" → split("_", 3) → ['mgprop', 'delphoto', '5', '12']
     parts = call.data.split("_", 3)
     if len(parts) < 4 or not parts[2].isdigit() or not parts[3].isdigit():
-        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        bot.answer_callback_query(call.id, texts["admin_invalid_data"])
         return
     img_id  = int(parts[2])
     prop_id = int(parts[3])
@@ -1444,7 +1445,7 @@ def admin_delete_photo(call):
     cur.close()
     conn.close()
     logger.info(f"[DELETE_PHOTO] img_id={img_id} prop_id={prop_id} by admin={cid}")
-    bot.answer_callback_query(call.id, "🗑 عکس حذف شد.")
+    bot.answer_callback_query(call.id, texts["admin_photo_deleted"])
     bot.delete_message(cid, call.message.message_id)
 
 
@@ -1455,21 +1456,17 @@ def admin_add_photo_start(call):
         return
     parts = call.data.split("_", 2)
     if len(parts) < 3 or not parts[2].isdigit():
-        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        bot.answer_callback_query(call.id, texts["admin_invalid_data"])
         return
     prop_id = int(parts[2])
-    msg = bot.send_message(cid, "🖼 عکس جدید را ارسال کنید:")
+    msg = bot.send_message(cid, texts["admin_ask_new_photo"])
     bot.register_next_step_handler(msg, admin_add_photo_save, prop_id)
-
-
-
-
 
 
 def admin_add_photo_save(message, prop_id):
     cid = message.chat.id
     if message.content_type != 'photo':
-        msg = bot.send_message(cid, "❌ لطفاً فقط عکس ارسال کنید:")
+        msg = bot.send_message(cid, texts["admin_photo_only_error"])
         bot.register_next_step_handler(msg, admin_add_photo_save, prop_id)
         return
     file_id = message.photo[-1].file_id
@@ -1484,9 +1481,9 @@ def admin_add_photo_save(message, prop_id):
     conn.close()
     logger.info(f"[ADD_PHOTO] prop_id={prop_id} by admin={cid}")
     markup = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("➕ افزودن عکس دیگر", callback_data=f"mgprop_addphoto_{prop_id}")
+        InlineKeyboardButton(texts["btn_add_another_photo"], callback_data=f"mgprop_addphoto_{prop_id}")
     )
-    bot.send_message(cid, "✅ عکس جدید با موفقیت اضافه شد.", reply_markup=markup)
+    bot.send_message(cid, texts["admin_photo_added"], reply_markup=markup)
 
 # -- حذف فایل --
 
@@ -1497,15 +1494,15 @@ def admin_delete_property_confirm(call):
         return
     parts = call.data.split("_", 2)
     if len(parts) < 3 or not parts[2].isdigit():
-        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        bot.answer_callback_query(call.id, texts["admin_invalid_data"])
         return
     prop_id = int(parts[2])
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
-        InlineKeyboardButton("⚠️ بله، حذف شود", callback_data=f"mgprop_confirmdelete_{prop_id}"),
-        InlineKeyboardButton("❌ انصراف",         callback_data="mgprop_canceldelete"),
+        InlineKeyboardButton(texts["btn_confirm_delete"], callback_data=f"mgprop_confirmdelete_{prop_id}"),
+        InlineKeyboardButton(texts["btn_cancel_delete"],  callback_data="mgprop_canceldelete"),
     )
-    bot.send_message(cid, "⚠️ آیا مطمئن هستید؟ این عملیات برگشت‌ناپذیر است.", reply_markup=markup)
+    bot.send_message(cid, texts["admin_delete_confirm"], reply_markup=markup)
 
 
 
@@ -1516,7 +1513,7 @@ def admin_delete_property_execute(call):
         return
     parts = call.data.split("_", 2)
     if len(parts) < 3 or not parts[2].isdigit():
-        bot.answer_callback_query(call.id, "⚠️ داده نامعتبر.")
+        bot.answer_callback_query(call.id, texts["admin_invalid_data"])
         return
     prop_id = int(parts[2])
     conn = get_connection()
@@ -1526,24 +1523,22 @@ def admin_delete_property_execute(call):
     cur.close()
     conn.close()
     logger.info(f"[DELETE_PROPERTY] prop_id={prop_id} by admin={cid}")
-    bot.answer_callback_query(call.id, "🗑 فایل حذف شد.")
-    bot.edit_message_text("✅ فایل با موفقیت از سیستم حذف شد.", cid, call.message.message_id)
-
-
+    bot.answer_callback_query(call.id, texts["admin_delete_done_toast"])
+    bot.edit_message_text(texts["admin_delete_done_msg"], cid, call.message.message_id)
 
 
 @bot.callback_query_handler(func=lambda c: c.data == "mgprop_canceldelete")
 def admin_cancel_delete(call):
-    bot.answer_callback_query(call.id, "عملیات لغو شد.")
+    bot.answer_callback_query(call.id, texts["admin_delete_cancelled"])
     bot.delete_message(call.message.chat.id, call.message.message_id)
 
 
 # -- ارسال پیام به همه کاربران --
 
-@bot.message_handler(func=lambda m: m.text == "ارسال پیام به همه کاربران" and is_admin(m.chat.id))
+@bot.message_handler(func=lambda m: m.text == texts["btn_broadcast"] and is_admin(m.chat.id))
 def admin_broadcast_start(message):
     cid = message.chat.id
-    msg = bot.send_message(cid, "✍️ متن پیام را بنویسید:")
+    msg = bot.send_message(cid, texts["admin_broadcast_ask"])
     bot.register_next_step_handler(msg, admin_broadcast_send)
 
 def admin_broadcast_send(message):
@@ -1558,18 +1553,18 @@ def admin_broadcast_send(message):
     sent, failed = 0, 0
     for u in users:
         try:
-            bot.send_message(u['telegram_id'], f"📢 *پیام از مشاور:*\n\n{text}", parse_mode='Markdown')
+            bot.send_message(u['telegram_id'], texts["admin_broadcast_template"].format(text=text), parse_mode='Markdown')
             sent += 1
         except Exception:
             failed += 1
     logger.info(f"[BROADCAST] admin={cid} total={len(users)} sent={sent} failed={failed}")
-    bot.send_message(cid, f"✅ ارسال تمام شد.\n📤 موفق: {sent} | ❌ ناموفق: {failed}")
+    bot.send_message(cid, texts["admin_broadcast_done"].format(sent=sent, failed=failed))
 
 # ================ SUPERUSER PANEL ================
 
 # -- مدیریت کاربران --
 
-@bot.message_handler(func=lambda m: m.text == "مدیریت کاربران" and is_superuser(m.chat.id))
+@bot.message_handler(func=lambda m: m.text == texts["btn_manage_users"] and is_superuser(m.chat.id))
 def superuser_users(message):
     cid = message.chat.id
     conn = get_connection()
@@ -1580,7 +1575,7 @@ def superuser_users(message):
     conn.close()
 
     if not users:
-        bot.send_message(cid, "هیچ کاربری ثبت نشده.")
+        bot.send_message(cid, texts["su_no_users"])
         return
 
     markup = InlineKeyboardMarkup(row_width=1)
@@ -1588,7 +1583,7 @@ def superuser_users(message):
         blocked = "🔴" if u['is_blocked'] else "🟢"
         label   = u['name'] or u['username'] or str(u['telegram_id'])
         markup.add(InlineKeyboardButton(f"{blocked} {label}", callback_data=f"suuser_{u['id']}"))
-    bot.send_message(cid, f"👥 *کاربران* ({len(users)} مورد):", parse_mode='Markdown', reply_markup=markup)
+    bot.send_message(cid, texts["su_users_header"].format(count=len(users)), parse_mode='Markdown', reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("suuser_"))
 def superuser_user_detail(call):
@@ -1605,21 +1600,21 @@ def superuser_user_detail(call):
     cur.close()
     conn.close()
     if not u:
-        bot.answer_callback_query(call.id, "کاربر پیدا نشد.")
+        bot.answer_callback_query(call.id, texts["su_user_not_found_cb"])
         return
-    status = "🔴 بلاک" if u['is_blocked'] else "🟢 فعال"
-    text = (
-        f"👤 *{u['name'] or '—'}*\n"
-        f"🔗 @{u['username'] or '—'}\n"
-        f"📱 {u['phone'] or 'ثبت نشده'}\n"
-        f"🆔 `{u['telegram_id']}`\n"
-        f"📋 درخواست‌های بازدید: {visit_cnt}\n"
-        f"📌 وضعیت: {status}"
+    status = texts["su_user_status_blocked"] if u['is_blocked'] else texts["su_user_status_active"]
+    text = texts["su_user_detail"].format(
+        name=u['name'] or '—',
+        username=u['username'] or '—',
+        phone=u['phone'] or texts["su_user_not_found_phone"],
+        telegram_id=u['telegram_id'],
+        visit_cnt=visit_cnt,
+        status=status
     )
     action_btn = (
-        InlineKeyboardButton("🔓 رفع بلاک", callback_data=f"unblock_{user_id}")
+        InlineKeyboardButton(texts["btn_unblock"], callback_data=f"unblock_{user_id}")
         if u['is_blocked'] else
-        InlineKeyboardButton("🚫 بلاک", callback_data=f"block_{user_id}")
+        InlineKeyboardButton(texts["btn_block"],   callback_data=f"block_{user_id}")
     )
     markup = InlineKeyboardMarkup()
     markup.add(action_btn)
@@ -1639,14 +1634,14 @@ def superuser_toggle_block(call):
     conn.commit()
     cur.close()
     conn.close()
-    label = "🚫 بلاک شد" if new_val else "🔓 رفع بلاک شد"
+    label = texts["su_blocked_toast"] if new_val else texts["su_unblocked_toast"]
     logger.info(f"[USER_BLOCK] superuser={cid} action={action} user_db_id={user_id}")
     bot.answer_callback_query(call.id, label)
     bot.delete_message(cid, call.message.message_id)
 
 # -- مدیریت ادمین ها --
 
-@bot.message_handler(func=lambda m: m.text == "مدیریت ادمین ها" and is_superuser(m.chat.id))
+@bot.message_handler(func=lambda m: m.text == texts["btn_manage_admins"] and is_superuser(m.chat.id))
 def superuser_admins(message):
     cid = message.chat.id
     admins = get_all_admins()
@@ -1658,24 +1653,24 @@ def superuser_admins(message):
             f"{crown} {a['name'] or a['telegram_id']} {active}",
             callback_data=f"suadmin_{a['id']}"
         ))
-    markup.add(InlineKeyboardButton("➕ افزودن ادمین جدید", callback_data="suadmin_add"))
-    bot.send_message(cid, f"🛡️ *ادمین‌ها* ({len(admins)} نفر):", parse_mode='Markdown', reply_markup=markup)
+    markup.add(InlineKeyboardButton(texts["btn_add_admin"], callback_data="suadmin_add"))
+    bot.send_message(cid, texts["su_admins_header"].format(count=len(admins)), parse_mode='Markdown', reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda c: c.data == "suadmin_add")
 def superuser_add_admin_start(call):
     cid = call.message.chat.id
     if not is_superuser(cid):
         return
-    msg = bot.send_message(cid, "🆔 آیدی عددی تلگرام ادمین جدید را وارد کنید:")
+    msg = bot.send_message(cid, texts["su_ask_admin_tid"])
     bot.register_next_step_handler(msg, superuser_add_admin_step2)
 
 def superuser_add_admin_step2(message):
     cid = message.chat.id
     if not message.text.strip().isdigit():
-        bot.send_message(cid, "❌ آیدی باید فقط عدد باشد.")
+        bot.send_message(cid, texts["su_invalid_admin_tid"])
         return
     tid = int(message.text.strip())
-    msg = bot.send_message(cid, "📛 نام ادمین جدید را وارد کنید:")
+    msg = bot.send_message(cid, texts["su_ask_admin_name"])
     bot.register_next_step_handler(msg, superuser_add_admin_step3, tid)
 
 def superuser_add_admin_step3(message, tid):
@@ -1683,10 +1678,10 @@ def superuser_add_admin_step3(message, tid):
     name = message.text.strip()
     markup = InlineKeyboardMarkup()
     markup.add(
-        InlineKeyboardButton("👑 سوپر یوزر",    callback_data=f"addadmin_{tid}_{name}_super"),
-        InlineKeyboardButton("🔧 ادمین معمولی", callback_data=f"addadmin_{tid}_{name}_normal"),
+        InlineKeyboardButton(texts["btn_role_superuser"], callback_data=f"addadmin_{tid}_{name}_super"),
+        InlineKeyboardButton(texts["btn_role_admin"],     callback_data=f"addadmin_{tid}_{name}_normal"),
     )
-    bot.send_message(cid, f"سطح دسترسی *{name}* را انتخاب کنید:", parse_mode='Markdown', reply_markup=markup)
+    bot.send_message(cid, texts["su_choose_admin_role"].format(name=name), parse_mode='Markdown', reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("addadmin_"))
 def superuser_confirm_add_admin(call):
@@ -1699,10 +1694,10 @@ def superuser_confirm_add_admin(call):
     name  = parts[2]
     level = parts[3]
     add_admin(tid, name, is_superuser_flag=(level == "super"))
-    label = "👑 سوپر یوزر" if level == "super" else "🔧 ادمین معمولی"
+    label = texts["su_admin_role_superuser"] if level == "super" else texts["su_admin_role_normal"]
     logger.info(f"[ADMIN_ADDED] superuser={cid} new_admin_tid={tid} name='{name}' level={level}")
-    bot.answer_callback_query(call.id, "✅ ادمین اضافه شد.")
-    bot.edit_message_text(f"✅ *{name}* به عنوان {label} اضافه شد.", cid, call.message.message_id, parse_mode='Markdown')
+    bot.answer_callback_query(call.id, texts["su_admin_added_toast"])
+    bot.edit_message_text(texts["su_admin_added_msg"].format(name=name, label=label), cid, call.message.message_id, parse_mode='Markdown')
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("suadmin_") and c.data != "suadmin_add")
 def superuser_admin_detail(call):
@@ -1713,19 +1708,19 @@ def superuser_admin_detail(call):
     admins = get_all_admins()
     a = next((x for x in admins if x['id'] == admin_id), None)
     if not a:
-        bot.answer_callback_query(call.id, "ادمین پیدا نشد.")
+        bot.answer_callback_query(call.id, texts["su_admin_not_found"])
         return
-    crown  = "👑 سوپر یوزر" if a['is_superuser'] else "🔧 ادمین معمولی"
-    active = "✅ فعال" if a['is_active'] else "🔴 غیرفعال"
-    text = (
-        f"*{a['name'] or '—'}*\n"
-        f"🆔 `{a['telegram_id']}`\n"
-        f"🏷 {crown}\n"
-        f"📌 {active}"
+    crown  = texts["su_admin_role_superuser"] if a['is_superuser'] else texts["su_admin_role_normal"]
+    active = texts["su_admin_status_active"]   if a['is_active']   else texts["su_admin_status_inactive"]
+    text = texts["su_admin_detail"].format(
+        name=a['name'] or '—',
+        telegram_id=a['telegram_id'],
+        crown=crown,
+        active=active
     )
     markup = InlineKeyboardMarkup()
     if a['is_active']:
-        markup.add(InlineKeyboardButton("🔴 غیرفعال‌سازی", callback_data=f"deactivateadmin_{a['telegram_id']}"))
+        markup.add(InlineKeyboardButton(texts["btn_deactivate_admin"], callback_data=f"deactivateadmin_{a['telegram_id']}"))
     bot.send_message(cid, text, parse_mode='Markdown', reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("deactivateadmin_"))
@@ -1736,27 +1731,23 @@ def superuser_deactivate_admin(call):
     tid = int(call.data.split("_")[1])
     deactivate_admin(tid)
     logger.info(f"[ADMIN_DEACTIVATED] superuser={cid} deactivated_admin_tid={tid}")
-    bot.answer_callback_query(call.id, "🔴 ادمین غیرفعال شد.")
+    bot.answer_callback_query(call.id, texts["su_admin_deactivated_toast"])
     bot.delete_message(cid, call.message.message_id)
 
 # -- آمار و گزارش --
 
-@bot.message_handler(func=lambda m: m.text == "آمار و گزارش" and is_superuser(m.chat.id))
+@bot.message_handler(func=lambda m: m.text == texts["btn_stats"] and is_superuser(m.chat.id))
 def superuser_stats(message):
     cid = message.chat.id
     s = get_stats()
-    text = (
-        "📊 *آمار کلی سیستم*\n\n"
-        f"👥 کاربران:\n"
-        f"  • کل: {s['total_users']}\n"
-        f"  • بلاک‌شده: {s['blocked_users']}\n"
-        f"  • عضو ۳۰ روز اخیر: {s['new_users_30d']}\n\n"
-        f"🏠 ملک‌ها:\n"
-        f"  • موجود: {s['available_props']}\n"
-        f"  • فروخته‌شده: {s['sold_props']}\n\n"
-        f"📋 درخواست‌های بازدید:\n"
-        f"  • در انتظار: {s['pending_visits']}\n"
-        f"  • معاملات موفق: {s['successful_deals']}"
+    text = texts["su_stats"].format(
+        total_users=s['total_users'],
+        blocked_users=s['blocked_users'],
+        new_users_30d=s['new_users_30d'],
+        available_props=s['available_props'],
+        sold_props=s['sold_props'],
+        pending_visits=s['pending_visits'],
+        successful_deals=s['successful_deals']
     )
     bot.send_message(cid, text, parse_mode='Markdown')
 
@@ -1782,54 +1773,20 @@ def more_sections_callback(call):
 
     # ─── درباره ما ───
     if call.data == "about_us":
-        text = (
-            "🏢 *درباره ما*\n\n"
-            "ما یک مجموعه تخصصی در حوزه خرید، فروش و اجاره ملک هستیم.\n\n"
-            "با سال‌ها تجربه در بازار مسکن، تیم مشاوران حرفه‌ای ما آماده‌اند تا بهترین "
-            "گزینه‌ها را متناسب با نیاز و بودجه شما پیدا کنند.\n\n"
-            "🎯 هدف ما: ارائه خدمات شفاف، سریع و قابل اعتماد در معاملات ملکی\n\n"
-            "📍 ما باور داریم که هر نفر لایق خانه رویایی‌اش است."
-        )
         bot.answer_callback_query(call.id)
-        bot.send_message(cid, text, parse_mode='Markdown')
+        bot.send_message(cid, texts["about_us"], parse_mode='Markdown')
         return
 
     # ─── راهنما ───
     if call.data == "guide":
-        text = (
-            "📖 *راهنمای استفاده از ربات*\n\n"
-            "🏠 *خرید:*\n"
-            "با زدن دکمه «خرید» می‌توانید فایل‌های فروش را مشاهده و بر اساس بودجه فیلتر کنید.\n\n"
-            "🔑 *اجاره:*\n"
-            "با زدن دکمه «اجاره» می‌توانید ملک‌های اجاره‌ای را بر اساس ودیعه، اجاره ماهانه یا هر دو جستجو کنید.\n\n"
-            "📅 *درخواست بازدید:*\n"
-            "زیر هر ملک دکمه «درخواست بازدید» وجود دارد. پس از ثبت درخواست، مشاور ما با شما تماس می‌گیرد.\n\n"
-            "👤 *پروفایل:*\n"
-            "در بخش «بیشتر ← پروفایل من» می‌توانید اطلاعات خود را ویرایش کنید و وضعیت درخواست‌هایتان را پیگیری کنید.\n\n"
-            "📞 *ارتباط با ما:*\n"
-            "در صورت نیاز به راهنمایی بیشتر، از بخش «ارتباط با ما» درخواست دهید تا مشاور با شما تماس بگیرد."
-        )
         bot.answer_callback_query(call.id)
-        bot.send_message(cid, text, parse_mode='Markdown')
+        bot.send_message(cid, texts["guide"], parse_mode='Markdown')
         return
 
     # ─── پشتیبانی ───
     if call.data == "support":
-        text = (
-            "🛟 *پشتیبانی*\n\n"
-            "تیم پشتیبانی ما همه روزه آماده پاسخگویی به سوالات شما هستند.\n\n"
-            "⏰ *ساعات پاسخگویی:*\n"
-            "شنبه تا چهارشنبه: ۹ صبح تا ۶ عصر\n"
-            "پنج‌شنبه: ۹ صبح تا ۱ بعدازظهر\n\n"
-            "📌 *موارد قابل پیگیری:*\n"
-            "• وضعیت درخواست بازدید\n"
-            "• مشاوره در انتخاب ملک\n"
-            "• سوالات مربوط به قراردادها\n"
-            "• مشکلات فنی ربات\n\n"
-            "برای ارتباط مستقیم با مشاور، از گزینه «📞 ارتباط با ما» استفاده کنید."
-        )
         bot.answer_callback_query(call.id)
-        bot.send_message(cid, text, parse_mode='Markdown')
+        bot.send_message(cid, texts["support"], parse_mode='Markdown')
         return
 
     # ─── ارتباط با ما ───
@@ -1841,45 +1798,37 @@ def more_sections_callback(call):
             # کاربر شماره دارد: تاییدیه نمایش داده می‌شود
             markup = InlineKeyboardMarkup(row_width=2)
             markup.add(
-                InlineKeyboardButton("✅ بله، تماس بگیرید", callback_data="contact_confirm"),
-                InlineKeyboardButton("❌ انصراف", callback_data="contact_cancel"),
+                InlineKeyboardButton(texts["btn_contact_confirm"], callback_data="contact_confirm"),
+                InlineKeyboardButton(texts["btn_contact_cancel"],  callback_data="contact_cancel"),
             )
             bot.send_message(
                 cid,
-                "📞 *درخواست تماس*\n\n"
-                "یکی از مشاوران ما در اسرع وقت با شما تماس خواهد گرفت و راهنمایی لازم را ارائه می‌دهد.\n\n"
-                "آیا می‌خواهید درخواست تماس ثبت شود؟",
+                texts["contact_confirm_text"],
                 parse_mode='Markdown',
                 reply_markup=markup
             )
         else:
             # کاربر شماره ندارد: ابتدا شماره گرفته می‌شود
-            msg = bot.send_message(
-                cid,
-                "📱 برای ارتباط با مشاور، لطفاً شماره موبایل خود را وارد کنید (مثال: 09xxxxxxxxx):"
-            )
+            msg = bot.send_message(cid, texts["contact_ask_phone"])
             bot.register_next_step_handler(msg, contact_us_phone_step)
 
 def contact_us_phone_step(message):
     cid = message.chat.id
     phone = normalize_phone_number(message.text)
     if not phone:
-        msg = bot.send_message(cid, "❌ شماره نامعتبر است. لطفاً با فرمت 09xxxxxxxxx وارد کنید:")
+        msg = bot.send_message(cid, texts["contact_invalid_phone"])
         bot.register_next_step_handler(msg, contact_us_phone_step)
         return
     update_user_phone(message.from_user.id, phone)
     logger.info(f"[CONTACT_US] user={cid} phone saved for contact: {phone}")
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
-        InlineKeyboardButton("✅ بله، تماس بگیرید", callback_data="contact_confirm"),
-        InlineKeyboardButton("❌ انصراف", callback_data="contact_cancel"),
+        InlineKeyboardButton(texts["btn_contact_confirm"], callback_data="contact_confirm"),
+        InlineKeyboardButton(texts["btn_contact_cancel"],  callback_data="contact_cancel"),
     )
     bot.send_message(
         cid,
-        "✅ شماره شما ثبت شد.\n\n"
-        "📞 *درخواست تماس*\n\n"
-        "یکی از مشاوران ما در اسرع وقت با شما تماس خواهد گرفت و راهنمایی لازم را ارائه می‌دهد.\n\n"
-        "آیا می‌خواهید درخواست تماس ثبت شود؟",
+        texts["contact_phone_saved_prefix"] + texts["contact_confirm_text"],
         parse_mode='Markdown',
         reply_markup=markup
     )
@@ -1890,16 +1839,14 @@ def contact_us_confirm_callback(call):
     telegram_id = call.from_user.id
 
     if call.data == "contact_cancel":
-        bot.answer_callback_query(call.id, "درخواست لغو شد.")
+        bot.answer_callback_query(call.id, texts["contact_cancelled"])
         bot.delete_message(cid, call.message.message_id)
         return
 
     # تأیید شد: اطلاع‌رسانی به کاربر
-    bot.answer_callback_query(call.id, "✅ درخواست ثبت شد.")
+    bot.answer_callback_query(call.id, texts["contact_request_sent_toast"])
     bot.edit_message_text(
-        "✅ *درخواست شما ثبت شد!*\n\n"
-        "یکی از مشاوران ما به‌زودی با شما تماس خواهد گرفت.\n"
-        "ممنون از اعتماد شما 🙏",
+        texts["contact_request_sent_msg"],
         cid,
         call.message.message_id,
         parse_mode='Markdown'
@@ -1907,17 +1854,15 @@ def contact_us_confirm_callback(call):
 
     # ارسال پیام به سوپریوزرها
     user = get_user_by_telegram_id(telegram_id)
-    name    = (user.get('name') or '—') if user else '—'
-    phone   = (user.get('phone') or 'ثبت نشده') if user else 'ثبت نشده'
+    name     = (user.get('name') or '—') if user else '—'
+    phone    = (user.get('phone') or texts["contact_not_registered"]) if user else texts["contact_not_registered"]
     username = f"@{user['username']}" if user and user.get('username') else '—'
 
-    notify_text = (
-        "📞 *درخواست تماس جدید*\n\n"
-        f"👤 نام: {name}\n"
-        f"🔗 یوزرنیم: {username}\n"
-        f"📱 شماره: {phone}\n"
-        f"🆔 آیدی: `{telegram_id}`\n\n"
-        "این کاربر درخواست کمک دارد. لطفاً با وی تماس بگیرید."
+    notify_text = texts["contact_notify_superuser"].format(
+        name=name,
+        username=username,
+        phone=phone,
+        telegram_id=telegram_id
     )
 
     superuser_ids = get_superuser_telegram_ids()
